@@ -21,6 +21,10 @@ All structural decisions (layout, tooling, conventions) follow [phalt/paulblish]
 
 ## Key Rules
 
+- **Use pydantic for all structured data.** Prefer `pydantic.BaseModel` over `dataclasses.dataclass` everywhere. `pydantic` is installed; use it.
+
+- **Import everyhing as a module; never destructure it.** For example: Always `import typing` and reference names as `typing.Literal`, `typing.Any`, etc. Never `from typing import Literal`. Another example: Always `from pauldot import zshrc` and reference names as `zshrc.apply_zshrc`, never `from pauldot.zshrc import apply_zshrc`.
+
 - **Every implementation change must include tests.** Before marking a phase step as done, either confirm existing test coverage is sufficient and adapt it, or write new tests. No untested code gets checked off.
 
 - **`apply` must never touch the real `$HOME` in tests.** Always use the fake-home fixture. The cost of a bug here is a clobbered `~/.zshrc`.
@@ -59,7 +63,7 @@ uv run pauldot status          # dry-run apply, no side effects
 
 ## Implementation Progress
 
-Current phase: **Phase 0 — Not started**
+Current phase: **Phase 0.2**
 
 After completing each phase action, check it off in `spec.md` (change `- [ ]` to `- [x]`) and update the current phase note here if the phase changes.
 

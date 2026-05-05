@@ -459,9 +459,9 @@ All commands assume `uv`. README examples consistently use `uv run pauldot ...` 
 
 ### v0.1 — single profile, one file
 
-- `pauldot apply` symlinks `~/.zshrc` to a hardcoded file
-- `pauldot status` dry-run
-- ~150 lines, proves symlink + backup logic
+- [x] `pauldot apply` symlinks `~/.zshrc` to a hardcoded file
+- [x] `pauldot status` dry-run
+- [x] ~150 lines, proves symlink + backup logic
 
 ### v0.2 — TOML config, profiles, init
 
