@@ -465,10 +465,10 @@ All commands assume `uv`. README examples consistently use `uv run pauldot ...` 
 
 ### v0.2 — TOML config, profiles, init
 
-- `pauldot.toml`, `profiles/*.toml`
-- `pauldot init <repo-url>` with state.toml
-- `pauldot profile show / set / list`
-- Generated zshrc sourcing base + profile + aliases
+- [x] `pauldot.toml`, `profiles/*.toml`
+- [x] `pauldot init <repo-url>` with state.toml
+- [x] `pauldot profile show / set / list`
+- [x] Generated zshrc sourcing base + profile + aliases
 
 ### v0.3 — tools
 

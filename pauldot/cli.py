@@ -1,13 +1,15 @@
 """Typer app, command definitions, and subcommand groups."""
 
 import pathlib
+import typing
 
 import typer
 from rich import console as rich_console
 from rich import table as rich_table
 from rich import text as rich_text
 
-from pauldot import zshrc
+from pauldot import apply as pauldot_apply
+from pauldot import config, git, state, zshrc
 
 app = typer.Typer(no_args_is_help=True)
 profile_app = typer.Typer()
@@ -50,11 +52,66 @@ def _print_zshrc_result(result: zshrc.ZshrcResult, dry_run: bool) -> None:
 
 
 @app.command()
+def init(
+    repo_url: typing.Annotated[str | None, typer.Argument()] = None,
+) -> None:
+    """Clone your dotfiles repo and configure this machine."""
+    home = pathlib.Path.home()
+    repo_path = home / ".pauldot"
+
+    if repo_path.exists():
+        console.print(f"[yellow]⚠[/yellow] Dotfiles repo already exists at {repo_path}.")
+        console.print("Run `pauldot sync` to update it.")
+        raise typer.Exit(1)
+
+    if repo_url is None:
+        console.print("No dotfiles repo configured.\n")
+        is_private = typer.confirm("Is your dotfiles repo private?", default=True)
+        if is_private:
+            console.print(
+                "\nPrivate repos require GitHub CLI authentication. Run:\n\n"
+                "    pauldot help gh\n\n"
+                "…then re-run `pauldot init <repo-url>`."
+            )
+            raise typer.Exit(1)
+        repo_url = typer.prompt("Dotfiles repo URL")
+
+    console.print(f"Cloning into {repo_path}…")
+    try:
+        git.clone(repo_url, repo_path)
+    except RuntimeError as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1) from None
+
+    try:
+        cfg = config.load_pauldot_config(repo_path)
+    except FileNotFoundError as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1) from None
+
+    console.print("Repo cloned. Found pauldot.toml.\n")
+
+    available = config.list_profiles(repo_path)
+    default = cfg.core.default_profile
+    console.print(f"Available profiles: {', '.join(available)}")
+    console.print(f"Default: {default}\n")
+
+    active = typer.prompt("Set active profile", default=default)
+    if active not in available:
+        console.print(f"[red]Error:[/red] Profile '{active}' not found. Available: {', '.join(available)}")
+        raise typer.Exit(1)
+
+    state.save_state(state.State(active_profile=active, repo_url=repo_url))
+    console.print(f"Active profile: {active}")
+    console.print("\nRun `pauldot apply` when ready.")
+
+
+@app.command()
 def apply() -> None:
     """Reconcile current profile: symlink ~/.zshrc, install missing tools."""
     try:
-        result = zshrc.apply_zshrc(pathlib.Path.home())
-    except FileNotFoundError as e:
+        result = pauldot_apply.run(pathlib.Path.home())
+    except (FileNotFoundError, RuntimeError) as e:
         console.print(f"[red]Error:[/red] {e}")
         raise typer.Exit(1) from None
     _print_zshrc_result(result, dry_run=False)
@@ -64,8 +121,62 @@ def apply() -> None:
 def status() -> None:
     """Dry-run apply: show what would change without touching anything."""
     try:
-        result = zshrc.apply_zshrc(pathlib.Path.home(), dry_run=True)
-    except FileNotFoundError as e:
+        result = pauldot_apply.run(pathlib.Path.home(), dry_run=True)
+    except (FileNotFoundError, RuntimeError) as e:
         console.print(f"[red]Error:[/red] {e}")
         raise typer.Exit(1) from None
     _print_zshrc_result(result, dry_run=True)
+
+
+# — profile subcommands ————————————————————————————————————————————————————————
+
+
+@profile_app.command("show")
+def profile_show() -> None:
+    """Show the active profile."""
+    try:
+        s = state.load_state()
+    except FileNotFoundError as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1) from None
+    console.print(s.active_profile)
+
+
+@profile_app.command("list")
+def profile_list() -> None:
+    """List available profiles."""
+    repo_path = pathlib.Path.home() / ".pauldot"
+    available = config.list_profiles(repo_path)
+
+    try:
+        active = state.load_state().active_profile
+    except FileNotFoundError:
+        active = None
+
+    for name in available:
+        marker = rich_text.Text(f"  {name}")
+        if name == active:
+            marker.stylize("bold green")
+            marker = marker + rich_text.Text(" (active)", style="dim")
+        console.print(marker)
+
+
+@profile_app.command("set")
+def profile_set(name: str) -> None:
+    """Set the active profile."""
+    repo_path = pathlib.Path.home() / ".pauldot"
+    available = config.list_profiles(repo_path)
+
+    if name not in available:
+        console.print(f"[red]Error:[/red] Profile '{name}' not found. Available: {', '.join(available)}")
+        raise typer.Exit(1)
+
+    try:
+        s = state.load_state()
+    except FileNotFoundError as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1) from None
+
+    s.active_profile = name
+    state.save_state(s)
+    console.print(f"Active profile: {name}")
