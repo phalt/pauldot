@@ -1,0 +1,41 @@
+[project]
+name = "pauldot"
+version = "0.1.0"
+description = "Personal system manager: dotfiles, profiles, and tool installations across machines."
+authors = [{ name = "Paul Hallett" }]
+license = { text = "MIT" }
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "typer>=0.15",
+    "tomli-w>=1.2",
+    "pydantic>=2.10",
+    "rich>=13.9",
+    "platformdirs>=4.3",
+]
+
+[project.scripts]
+pauldot = "pauldot.cli:app"
+
+[dependency-groups]
+dev = ["pytest>=8.0", "ruff>=0.9"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pauldot"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]

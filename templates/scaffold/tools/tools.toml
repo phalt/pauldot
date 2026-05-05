@@ -1,0 +1,8 @@
+# Declare tools here. pauldot apply installs anything that's missing.
+# See spec.md for the full schema.
+
+# [[tool]]
+# name = "starship"
+# check = "command -v starship"
+# install.macos = "brew install starship"
+# install.linux = "curl -sS https://starship.rs/install.sh | sh -s -- -y"

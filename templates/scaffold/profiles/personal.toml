@@ -1,0 +1,7 @@
+extends = "base"
+
+zshrc = "files/zshrc.personal"
+
+tools = []
+
+[env]

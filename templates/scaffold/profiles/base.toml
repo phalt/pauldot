@@ -1,0 +1,6 @@
+zshrc = "files/zshrc.base"
+
+tools = []
+
+[env]
+EDITOR = "vim"
