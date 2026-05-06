@@ -23,3 +23,6 @@ clean:  ## Clear cache files and build outputs
 	rm -rf dist/
 	find . -type d -name __pycache__ -exec rm -rf {} +
 	find . -type d -name "*.egg-info" -exec rm -rf {} +
+
+release:  ## Build a new version and release it
+	uv build && uv publish
