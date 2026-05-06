@@ -27,7 +27,6 @@ def test_resolve_simple_profile(repo):
     assert result.zshrc_files == [repo / "files" / "zshrc.personal"]
     assert result.tools == ["starship"]
     assert result.env == {"EDITOR": "vim"}
-    assert result.secrets is None
 
 
 def test_resolve_profile_with_extends(repo):

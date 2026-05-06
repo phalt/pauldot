@@ -8,9 +8,5 @@ auto_push = false
 default_branch = "main"
 visibility = "private"
 
-[encryption]
-enabled = false
-recipients_file = "secrets/recipients.txt"
-
 [bootstrap]
 require_gh_auth = true

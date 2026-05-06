@@ -1,6 +1,9 @@
-"""Typer app, command definitions, and subcommand groups."""
+"""Typer app entry point. Registers subcommand groups and top-level commands."""
 
+import os
 import pathlib
+import shutil
+import subprocess
 import typing
 
 import typer
@@ -9,20 +12,29 @@ from rich import table as rich_table
 from rich import text as rich_text
 
 from pauldot import apply as pauldot_apply
-from pauldot import config, git, profiles, shell, state, tools, zshrc
+from pauldot import config, git, profiles, state, zshrc
+from pauldot.commands import alias as cmd_alias
+from pauldot.commands import help as cmd_help
+from pauldot.commands import profile as cmd_profile
+from pauldot.commands import tool as cmd_tool
 
-app = typer.Typer(no_args_is_help=True)
-profile_app = typer.Typer()
-tool_app = typer.Typer()
-keys_app = typer.Typer()
-secret_app = typer.Typer()
-help_app = typer.Typer()
+_BANNER = (
+    "\b\n"
+    + r"""                   _     _       _
+ _ __   __ _ _   _| | __| | ___ | |_
+| '_ \ / _` | | | | |/ _` |/ _ \| __|
+| |_) | (_| | |_| | | (_| | (_) | |_
+| .__/ \__,_|\__,_|_|\__,_|\___/ \__|
+|_|
+personal system manager for bash aliases & tools"""
+)
 
-app.add_typer(profile_app, name="profile")
-app.add_typer(tool_app, name="tool", help="Manage tools installed on the system.")
-app.add_typer(keys_app, name="keys")
-app.add_typer(secret_app, name="secret")
-app.add_typer(help_app, name="help")
+app = typer.Typer(no_args_is_help=True, help=_BANNER)
+
+app.add_typer(cmd_alias.alias_app, name="alias", help="Manage shell aliases.")
+app.add_typer(cmd_profile.profile_app, name="profile", help="Manage your dotfiles profile.")
+app.add_typer(cmd_tool.tool_app, name="tool", help="Manage tools installed on the system.")
+app.add_typer(cmd_help.help_app, name="help", help="Show instructions for setting up and using Pauldot.")
 
 console = rich_console.Console()
 
@@ -31,13 +43,6 @@ _ZSHRC_ACTION_LABELS: dict[str, rich_text.Text] = {
     "backup_replaced": rich_text.Text("✓ replaced", style="green"),
     "replaced": rich_text.Text("✓ replaced", style="green"),
     "no_op": rich_text.Text("✓ already linked", style="dim"),
-}
-
-_TOOL_ACTION_LABELS: dict[str, tuple[str, str]] = {
-    "installed": ("✓ installed", "green"),
-    "already_installed": ("✓ already installed", "dim"),
-    "skipped": ("– skipped", "dim"),
-    "failed": ("⚠ failed", "yellow"),
 }
 
 
@@ -58,27 +63,10 @@ def _print_zshrc_result(result: zshrc.ZshrcResult, dry_run: bool) -> None:
     console.print(t)
 
 
-def _print_tool_results(tool_results: list[tools.ToolResult]) -> None:
-    t = rich_table.Table(show_header=False, box=None, padding=(0, 2))
-    t.add_column(no_wrap=True)
-    t.add_column(no_wrap=True)
-    t.add_column(no_wrap=True)
-
-    for result in tool_results:
-        label, style = _TOOL_ACTION_LABELS[result.action]
-        error_text = rich_text.Text(result.error or "", style="dim")
-        t.add_row(rich_text.Text(result.name), rich_text.Text(label, style=style), error_text)
-        if result.output:
-            for line in result.output.splitlines():
-                t.add_row(rich_text.Text(""), rich_text.Text(f"  {line}", style="dim"), rich_text.Text(""))
-
-    console.print(t)
-
-
 def _print_apply_result(result: pauldot_apply.ApplyResult, dry_run: bool) -> None:
     _print_zshrc_result(result.zshrc, dry_run)
     if result.tools:
-        _print_tool_results(result.tools)
+        cmd_tool.print_tool_results(result.tools)
 
 
 @app.command()
@@ -162,166 +150,134 @@ def status() -> None:
     _print_apply_result(result, dry_run=True)
 
 
-# — profile subcommands ————————————————————————————————————————————————————————
-
-
-@profile_app.command("show")
-def profile_show() -> None:
-    """Show the active profile."""
-    try:
-        s = state.load_state()
-    except FileNotFoundError as e:
-        console.print(f"[red]Error:[/red] {e}")
-        raise typer.Exit(1) from None
-    console.print(s.active_profile)
-
-
-@profile_app.command("list")
-def profile_list() -> None:
-    """List available profiles."""
-    repo_path = pathlib.Path.home() / ".pauldot"
-    available = config.list_profiles(repo_path)
-
-    try:
-        active = state.load_state().active_profile
-    except FileNotFoundError:
-        active = None
-
-    for name in available:
-        entry = rich_text.Text(f"  {name}")
-        if name == active:
-            entry.stylize("bold green")
-            entry = entry + rich_text.Text(" (active)", style="dim")
-        console.print(entry)
-
-
-@profile_app.command("set")
-def profile_set(name: str) -> None:
-    """Set the active profile."""
-    repo_path = pathlib.Path.home() / ".pauldot"
-    available = config.list_profiles(repo_path)
-
-    if name not in available:
-        console.print(f"[red]Error:[/red] Profile '{name}' not found. Available: {', '.join(available)}")
+@app.command()
+def edit(
+    target: typing.Annotated[str, typer.Argument(help="What to edit: profile, tools, zshrc, pauldot")] = "pauldot",
+) -> None:
+    """Open a dotfiles file in $EDITOR."""
+    editor = os.environ.get("EDITOR")
+    if not editor:
+        console.print("[red]Error:[/red] $EDITOR is not set. Set it in your profile's [env] block.")
         raise typer.Exit(1)
 
+    repo_path = pathlib.Path.home() / ".pauldot"
+
     try:
         s = state.load_state()
     except FileNotFoundError as e:
         console.print(f"[red]Error:[/red] {e}")
         raise typer.Exit(1) from None
 
-    s.active_profile = name
-    state.save_state(s)
-    console.print(f"Active profile: {name}")
+    if target == "pauldot":
+        path = repo_path / "pauldot.toml"
+    elif target == "tools":
+        path = repo_path / "tools" / "tools.toml"
+    elif target == "profile":
+        path = repo_path / "profiles" / f"{s.active_profile}.toml"
+    elif target == "zshrc":
+        try:
+            profile = profiles.resolve(repo_path, s.active_profile)
+        except FileNotFoundError as e:
+            console.print(f"[red]Error:[/red] {e}")
+            raise typer.Exit(1) from None
+        if not profile.zshrc_files:
+            console.print(f"[red]Error:[/red] Profile '{s.active_profile}' has no zshrc file configured.")
+            raise typer.Exit(1)
+        path = profile.zshrc_files[-1]  # the most specific zshrc (child, not parent)
+    else:
+        console.print(f"[red]Error:[/red] Unknown target '{target}'. Choose: profile, tools, zshrc, pauldot")
+        raise typer.Exit(1)
+
+    subprocess.run([editor, str(path)])
 
 
-# — tool subcommands ———————————————————————————————————————————————————————————
-
-
-@tool_app.command("list")
-def tool_list() -> None:
-    """List all tools defined in tools/tools.toml."""
-    repo_path = pathlib.Path.home() / ".pauldot"
-    all_tools = config.load_tools(repo_path)
-
-    if not all_tools:
-        console.print("No tools defined. Run `pauldot tool add` to add one.")
-        return
-
-    try:
-        active_profile = profiles.resolve(repo_path, state.load_state().active_profile)
-        profile_tools = set(active_profile.tools)
-    except FileNotFoundError:
-        profile_tools = set()
+@app.command()
+def doctor() -> None:
+    """Check pauldot's health on this machine."""
+    home = pathlib.Path.home()
+    repo_path = home / ".pauldot"
 
     t = rich_table.Table(show_header=False, box=None, padding=(0, 2))
     t.add_column(no_wrap=True)
     t.add_column(no_wrap=True)
-    t.add_column(no_wrap=True)
 
-    for tool_def in all_tools:
-        is_installed = tools.check(tool_def)
-        status_text = rich_text.Text(
-            "✓ installed" if is_installed else "✗ not installed",
-            style="green" if is_installed else "red",
-        )
-        profile_marker = rich_text.Text(
-            " (active profile)" if tool_def.name in profile_tools else "",
-            style="dim",
-        )
-        t.add_row(rich_text.Text(tool_def.name), status_text, profile_marker)
+    def ok(label: str, detail: str = "") -> None:
+        t.add_row(rich_text.Text(f"✓  {label}", style="green"), rich_text.Text(detail, style="dim"))
+
+    def warn(label: str, detail: str = "") -> None:
+        t.add_row(rich_text.Text(f"⚠  {label}", style="yellow"), rich_text.Text(detail, style="dim"))
+
+    def fail(label: str, detail: str = "") -> None:
+        t.add_row(rich_text.Text(f"✗  {label}", style="red"), rich_text.Text(detail, style="dim"))
+
+    # 1. state.toml
+    try:
+        s = state.load_state()
+        ok("state.toml", f"profile: {s.active_profile}")
+    except FileNotFoundError:
+        fail("state.toml", "run `pauldot init <repo-url>`")
+        s = None
+
+    # 2. dotfiles repo
+    if repo_path.exists():
+        ok("dotfiles repo", str(repo_path))
+    else:
+        fail("dotfiles repo", f"{repo_path} not found")
+
+    # 3. pauldot.toml
+    try:
+        cfg = config.load_pauldot_config(repo_path)
+        ok("pauldot.toml")
+    except FileNotFoundError:
+        fail("pauldot.toml", "repo missing or not a pauldot dotfiles repo")
+        cfg = None
+
+    # 4. ~/.zshrc symlink
+    zshrc_link = home / ".zshrc"
+    generated = repo_path / zshrc.GENERATED_ZSHRC_REL
+    if zshrc_link.is_symlink() and zshrc_link.resolve() == generated.resolve():
+        ok("~/.zshrc", "symlinked to generated file")
+    elif zshrc_link.is_symlink():
+        warn("~/.zshrc", f"symlinks to {zshrc_link.resolve()}, not the generated file — run `pauldot apply`")
+    elif zshrc_link.exists():
+        warn("~/.zshrc", "regular file, not a symlink — run `pauldot apply` to replace it")
+    else:
+        warn("~/.zshrc", "not found — run `pauldot apply`")
+
+    # 5. gh binary (if private repo)
+    if cfg and cfg.git.visibility == "private":
+        if shutil.which("gh"):
+            ok("gh binary")
+        else:
+            warn("gh binary", "not found — needed for private repos (`pauldot help gh`)")
 
     console.print(t)
 
 
-@tool_app.command("install")
-def tool_install(
-    name: typing.Annotated[str | None, typer.Argument()] = None,
-    verbose: typing.Annotated[
-        bool, typer.Option("--verbose", "-v", help="Show subprocess output from install commands.")
-    ] = False,
-) -> None:
-    """Install a specific tool, or all tools in the active profile."""
+@app.command()
+def sync() -> None:
+    """Pull latest changes from remote; push if there are local commits."""
     repo_path = pathlib.Path.home() / ".pauldot"
-    all_tools = {t.name: t for t in config.load_tools(repo_path)}
-    os_name = shell.detect_os()
 
-    if name is not None:
-        if name not in all_tools:
-            console.print(f"[red]Error:[/red] Tool '{name}' not found. Run `pauldot tool list`.")
-            raise typer.Exit(1)
-        tool_names = [name]
-    else:
+    if not repo_path.exists():
+        console.print("[red]Error:[/red] Dotfiles repo not found. Run `pauldot init <repo-url>`.")
+        raise typer.Exit(1)
+
+    try:
+        output = git.pull_rebase(repo_path)
+        if output:
+            console.print(output)
+        console.print("✓ Pulled latest changes.")
+    except RuntimeError as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1) from None
+
+    if git.has_unpushed_commits(repo_path):
         try:
-            active = state.load_state().active_profile
-            profile = profiles.resolve(repo_path, active)
-            tool_names = profile.tools
-        except FileNotFoundError as e:
+            git.push(repo_path)
+            console.print("✓ Pushed local commits.")
+        except RuntimeError as e:
             console.print(f"[red]Error:[/red] {e}")
             raise typer.Exit(1) from None
-
-    results = tools.reconcile(tool_names, all_tools, os_name, verbose=verbose)
-    _print_tool_results(results)
-
-
-@tool_app.command("add")
-def tool_add() -> None:
-    """Interactively add a tool definition to tools/tools.toml."""
-    repo_path = pathlib.Path.home() / ".pauldot"
-
-    name = typer.prompt("Tool name")
-    check_cmd = typer.prompt("Check command (e.g. command -v uv)")
-    macos_install = typer.prompt("macOS install command (leave blank to skip)", default="")
-    linux_install = typer.prompt("Linux install command (leave blank to skip)", default="")
-
-    existing = config.load_tools(repo_path)
-    if any(t.name == name for t in existing):
-        console.print(f"[yellow]⚠[/yellow] Tool '{name}' already defined. Edit tools/tools.toml to update it.")
-        raise typer.Exit(1)
-
-    new_tool = config.ToolDefinition(
-        name=name,
-        check=check_cmd,
-        install=config.ToolInstall(
-            macos=macos_install or None,
-            linux=linux_install or None,
-        ),
-    )
-    config.save_tools(repo_path, [*existing, new_tool])
-    console.print(f"✓ Added '{name}' to tools/tools.toml.")
-
-
-@tool_app.command("remove")
-def tool_remove(name: str) -> None:
-    """Remove a tool definition from tools/tools.toml."""
-    repo_path = pathlib.Path.home() / ".pauldot"
-    existing = config.load_tools(repo_path)
-    updated = [t for t in existing if t.name != name]
-
-    if len(updated) == len(existing):
-        console.print(f"[red]Error:[/red] Tool '{name}' not found. Run `pauldot tool list`.")
-        raise typer.Exit(1)
-
-    config.save_tools(repo_path, updated)
-    console.print(f"✓ Removed '{name}' from tools/tools.toml.")
+    else:
+        console.print("  Nothing to push.")

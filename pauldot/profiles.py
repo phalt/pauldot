@@ -12,7 +12,6 @@ class ResolvedProfile(pydantic.BaseModel):
     zshrc_files: list[pathlib.Path]  # in source order: parent first, then child
     tools: list[str]
     env: dict[str, str]
-    secrets: str | None = None
 
 
 def resolve(repo_path: pathlib.Path, name: str) -> ResolvedProfile:
@@ -44,5 +43,4 @@ def resolve(repo_path: pathlib.Path, name: str) -> ResolvedProfile:
         zshrc_files=zshrc_files,
         tools=tools,
         env=env,
-        secrets=profile.secrets,
     )

@@ -9,7 +9,6 @@ A personal system manager: dotfiles, profiles, and tool installations across mac
 - Declare desired tools and their install commands; reconcile on apply
 - Quick CLI affordances for the daily case (adding aliases, switching profiles)
 - One-line bootstrap on a fresh machine
-- Support both private and public dotfiles repos via age-encrypted secrets
 - Be forkable: the tool ships with no embedded assumptions about whose dotfiles repo it points at
 
 ## Non-goals
@@ -17,6 +16,7 @@ A personal system manager: dotfiles, profiles, and tool installations across mac
 - Not a general-purpose config manager (no Ansible/Nix ambitions)
 - Not cross-shell — zsh only
 - No GUI, no daemon, no background sync
+- No secrets management or encryption
 
 ## Tech stack
 
@@ -26,7 +26,6 @@ A personal system manager: dotfiles, profiles, and tool installations across mac
 - **`pydantic`** for config schema validation
 - **`rich`** for output
 - **`platformdirs`** for cross-platform paths
-- **`age`** (the binary) for encryption — shelled out, not via a Python wrapper
 - Shell out to `git` and `gh` via `subprocess`
 
 Everything else is stdlib. No async. No database.
@@ -36,7 +35,7 @@ Everything else is stdlib. No async. No database.
 This matters for the fork story:
 
 1. **`pauldot`** (this codebase) — the CLI tool. Forkable, but most users won't need to.
-2. **`<your>-dotfiles`** (the user's repo) — their actual config. Private or public; encrypted secrets where needed.
+2. **`<your>-dotfiles`** (the user's repo) — their actual config.
 
 The CLI never hardcodes a dotfiles repo URL. The user's repo URL lives in their local `~/.config/pauldot/state.toml`, set during bootstrap or `pauldot init`.
 
@@ -56,10 +55,6 @@ The CLI never hardcodes a dotfiles repo URL. The user's repo URL lives in their 
 │   └── aliases.zsh
 ├── tools/
 │   └── tools.toml
-├── secrets/                      # age-encrypted, safe in public repos
-│   ├── recipients.txt
-│   ├── work.env.age
-│   └── personal.env.age
 └── bootstrap.sh
 ```
 
@@ -67,8 +62,7 @@ The CLI never hardcodes a dotfiles repo URL. The user's repo URL lives in their 
 
 ```
 ~/.config/pauldot/
-├── state.toml                    # active profile, dotfiles repo URL, last apply
-└── identity.txt                  # this machine's age private key
+└── state.toml                    # active profile, dotfiles repo URL, last apply
 ```
 
 `state.toml` is the only thing that changes per-machine. Losing it means re-running `pauldot init <repo-url>` and selecting a profile.
@@ -92,15 +86,11 @@ auto_push = false
 default_branch = "main"
 visibility = "private"            # "private" | "public"; affects bootstrap messaging
 
-[encryption]
-enabled = true
-recipients_file = "secrets/recipients.txt"
-
 [bootstrap]
 require_gh_auth = true            # private repo → must auth via gh first
 ```
 
-`visibility` and `encryption.enabled` drive what `pauldot doctor` and `pauldot help bootstrap` say, and what the bootstrap script checks before cloning.
+`visibility` drives what `pauldot doctor` and `pauldot help bootstrap` say, and what the bootstrap script checks before cloning.
 
 ### `profiles/<name>.toml`
 
@@ -110,8 +100,6 @@ extends = "base"
 zshrc = "files/zshrc.work"
 
 tools = ["starship", "zed", "uv", "obsidian", "ripgrep"]
-
-secrets = "secrets/work.env.age"  # optional; decrypted at apply time
 
 [env]
 WORK_MODE = "true"
@@ -148,30 +136,6 @@ install.macos = "brew install --cask obsidian"
 # no linux entry — silently skipped on linux
 ```
 
-## Encryption model
-
-Secrets use **age** with the recipients pattern:
-
-- `~/.config/pauldot/identity.txt` is your **private key** — never committed, lives on each machine
-- `secrets/recipients.txt` lists **public keys** — committed, one per machine you own
-- Files in `secrets/*.age` are encrypted to all recipients; any of your machines can decrypt
-
-Adding a new machine:
-
-1. `pauldot keys generate` — creates a new identity, prints the public key
-2. Add the public key to `secrets/recipients.txt` on a machine you already trust
-3. `pauldot keys reencrypt` — re-encrypts every `secrets/*.age` to the updated recipient list
-4. Commit and push
-5. New machine pulls and can now decrypt
-
-At apply time:
-
-- The active profile's `secrets` file is decrypted to `~/.pauldot/files/.env.generated`
-- The generated zshrc sources that env file
-- The decrypted file is gitignored and never persisted to the repo
-
-If `encryption.enabled = false`, env vars come straight from the profile's `[env]` table and there's no decryption step.
-
 ## CLI surface
 
 ```
@@ -192,12 +156,6 @@ pauldot tool remove <name>
 
 pauldot alias add <key> <value>
 pauldot alias list
-
-pauldot keys generate
-pauldot keys show
-pauldot keys reencrypt
-pauldot secret add <name>
-pauldot secret edit <profile>
 
 pauldot sync                         # git pull --rebase, then push if local commits
 
@@ -240,14 +198,6 @@ Default: personal
 Set active profile [personal]: work
 Active profile: work
 
-This machine has no age identity. Generate one now? [Y/n]: y
-✓ Generated ~/.config/pauldot/identity.txt
-✓ Public key: age1abc...
-
-⚠ Add this public key to secrets/recipients.txt on a machine that can already
-  decrypt secrets, then run `pauldot keys reencrypt` there. Until then, this
-  machine cannot decrypt existing secrets.
-
 Run `pauldot apply` when ready.
 ```
 
@@ -259,18 +209,15 @@ Run `pauldot apply` when ready.
 2. Load `pauldot.toml` from the repo
 3. Resolve profile + extends chain
 4. Detect OS (`platform.system()` → `macos` or `linux`)
-5. **Encryption setup** (if `encryption.enabled`):
-   - Verify identity file exists; fail clearly if not
-   - Decrypt the profile's `secrets` file to `~/.pauldot/files/.env.generated`
-6. **zshrc reconciliation:**
+5. **zshrc reconciliation:**
    - Generate `~/.pauldot/files/.zshrc.generated` (sources base, profile, aliases, env)
    - Back up any existing non-symlink `~/.zshrc` to `~/.zshrc.bak.<timestamp>`
    - Symlink `~/.zshrc` → `~/.pauldot/files/.zshrc.generated`
-7. **Tool reconciliation:**
+6. **Tool reconciliation:**
    - For each tool in the resolved profile: run check, install if missing
    - Skip tools with no install entry for the current OS
    - Failures are reported, don't abort the loop
-8. Print a summary table
+7. Print a summary table
 
 ## How `bootstrap.sh` works
 
@@ -302,7 +249,7 @@ EOF
 
 if [ -z "$REPO_URL" ]; then
   printf "Dotfiles repo URL (or Ctrl-C to abort and run 'pauldot help gh' first): "
-  read REPO_URL
+  read -r REPO_URL
 fi
 
 # 1. uv
@@ -390,7 +337,7 @@ pauldot is the engine; the dotfiles repo is your config.
      pauldot init --scaffold ./dotfiles
 
    This creates:
-     pauldot.toml, profiles/, files/, tools/, secrets/, bootstrap.sh
+     pauldot.toml, profiles/, files/, tools/, bootstrap.sh
 
 3. Edit pauldot.toml — set core.default_profile, git.visibility, etc.
 
@@ -416,7 +363,6 @@ That's it. pauldot itself is unchanged — you just point it at your repo.
 source ~/.pauldot/files/zshrc.base
 source ~/.pauldot/files/zshrc.work
 source ~/.pauldot/files/aliases.zsh
-[ -f ~/.pauldot/files/.env.generated ] && source ~/.pauldot/files/.env.generated
 ```
 
 ## Project layout (the pauldot tool itself)
@@ -426,30 +372,31 @@ pauldot/
 ├── pyproject.toml                # requires-python = ">=3.14"
 ├── uv.lock
 ├── README.md
-├── src/
-│   └── pauldot/
-│       ├── __init__.py
-│       ├── __main__.py
-│       ├── cli.py
-│       ├── config.py
-│       ├── state.py
-│       ├── apply.py
-│       ├── tools.py
-│       ├── profiles.py
-│       ├── git.py
-│       ├── gh.py                 # gh CLI wrapper + auth detection
-│       ├── shell.py
-│       ├── zshrc.py
-│       ├── encryption.py         # age wrapper, key management
-│       ├── scaffold.py           # `init --scaffold`
-│       └── help_text.py          # bootstrap / gh / fork content
+├── pauldot/
+│   ├── __init__.py
+│   ├── __main__.py
+│   ├── cli.py
+│   ├── config.py
+│   ├── state.py
+│   ├── apply.py
+│   ├── tools.py
+│   ├── profiles.py
+│   ├── git.py
+│   ├── gh.py                 # gh CLI wrapper + auth detection
+│   ├── shell.py
+│   ├── zshrc.py
+│   ├── scaffold.py           # `init --scaffold`
+│   └── help_text.py          # bootstrap / gh / fork content
 ├── templates/
-│   └── scaffold/                 # the example dotfiles structure
+│   └── scaffold/             # the example dotfiles structure
 └── tests/
     ├── test_config.py
     ├── test_profiles.py
     ├── test_apply.py
-    ├── test_encryption.py
+    ├── test_tools.py
+    ├── test_git.py
+    ├── test_alias.py
+    ├── test_doctor.py
     └── test_scaffold.py
 ```
 
@@ -479,20 +426,14 @@ All commands assume `uv`. README examples consistently use `uv run pauldot ...` 
 
 ### v0.4 — quality of life
 
-- `pauldot alias add`
-- `pauldot edit`
-- `pauldot doctor`
-- `pauldot sync`
-- Auto-commit hooks
-- `pauldot help gh` and `pauldot help bootstrap`
+- [x] `pauldot alias add`
+- [x] `pauldot edit`
+- [x] `pauldot doctor`
+- [x] `pauldot sync`
+- [x] Auto-commit hooks
+- [x] `pauldot help gh` and `pauldot help bootstrap`
 
-### v0.5 — encryption
-
-- age dependency check
-- `pauldot keys generate / show / reencrypt`
-- `pauldot secret add / edit`
-- Encrypted env loading in apply
-- `pauldot.toml` `[encryption]` block honoured
+### v0.5 — encryption — skipped, out of scope
 
 ### v0.6 — fork-friendliness and distribution
 
@@ -514,13 +455,12 @@ All commands assume `uv`. README examples consistently use `uv run pauldot ...` 
 - **Idempotent apply.** Run it ten times, same result.
 - **Fork-friendly by construction.** No hardcoded usernames, repo URLs, or assumptions baked into the code.
 - **Fail loud, recover gracefully.** Tool install failures don't abort the apply loop.
-- **No magic.** Plain TOML, plain zsh, plain symlinks. Encrypted files are the one exception, and the encryption tool is industry-standard age.
+- **No magic.** Plain TOML, plain zsh, plain symlinks.
 - **`uv` everywhere.** Development, installation, distribution. No `pip`, no virtualenvs by hand.
 
 ## Resolved decisions
 
 - **Symlink for `~/.zshrc`** (not source) — cleaner, easier to detect drift
 - **`uv` is the bootstrap dep** — installed first, installs everything else
-- **Both private and public repos supported** — encryption is the bridge
 - **`apply` and `sync` are separate** — apply is deterministic from local state
 - **`pauldot.toml` is committed** so forks customise it; the dotfiles repo URL itself is local-only

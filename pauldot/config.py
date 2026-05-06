@@ -20,11 +20,6 @@ class GitConfig(pydantic.BaseModel):
     visibility: typing.Literal["private", "public"] = "private"
 
 
-class EncryptionConfig(pydantic.BaseModel):
-    enabled: bool = False
-    recipients_file: str = "secrets/recipients.txt"
-
-
 class BootstrapConfig(pydantic.BaseModel):
     require_gh_auth: bool = True
 
@@ -32,7 +27,6 @@ class BootstrapConfig(pydantic.BaseModel):
 class PauldotConfig(pydantic.BaseModel):
     core: CoreConfig = pydantic.Field(default_factory=CoreConfig)
     git: GitConfig = pydantic.Field(default_factory=GitConfig)
-    encryption: EncryptionConfig = pydantic.Field(default_factory=EncryptionConfig)
     bootstrap: BootstrapConfig = pydantic.Field(default_factory=BootstrapConfig)
 
 
@@ -40,7 +34,6 @@ class ProfileConfig(pydantic.BaseModel):
     extends: str | None = None
     zshrc: str | None = None
     tools: list[str] = pydantic.Field(default_factory=list)
-    secrets: str | None = None
     env: dict[str, str] = pydantic.Field(default_factory=dict)
 
 

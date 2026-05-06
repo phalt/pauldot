@@ -27,7 +27,6 @@ def test_load_pauldot_config_defaults(repo):
     (repo / "pauldot.toml").write_text("")
     cfg = config.load_pauldot_config(repo)
     assert cfg.core.default_profile == "personal"
-    assert cfg.encryption.enabled is False
     assert cfg.git.auto_commit is True
 
 
