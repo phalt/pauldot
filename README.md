@@ -22,8 +22,8 @@ uv tool install pauldot
 # 1. Create your dotfiles repo on GitHub
 gh repo create <you>/dotfiles --private --clone
 
-# 2. Scaffold the structure
-pauldot init --scaffold ./dotfiles
+# 2. Scaffold the structure (optionally porting your existing ~/.zshrc)
+pauldot init --scaffold ./dotfiles --port-existing-zshrc
 
 # 3. Edit pauldot.toml and bootstrap.sh, then push
 cd dotfiles && git add . && git commit -m "init" && git push
@@ -31,6 +31,8 @@ cd dotfiles && git add . && git commit -m "init" && git push
 # 4. On any new machine
 curl -sSL https://raw.githubusercontent.com/<you>/dotfiles/main/bootstrap.sh | sh
 ```
+
+`--port-existing-zshrc` is optional but recommended on first setup — it reads your current `~/.zshrc`, moves `alias` lines into `files/aliases.zsh`, and writes everything else into `files/zshrc.base`.
 
 Run `pauldot help fork` for the full walkthrough.
 
@@ -46,8 +48,9 @@ If your repo is private, set up GitHub CLI first — `pauldot help gh` walks you
 ## Commands
 
 ```
-pauldot init [<repo-url>]        Clone your dotfiles repo and configure this machine
-pauldot init --scaffold <path>   Generate a starter dotfiles repo structure
+pauldot init [<repo-url>]                            Clone your dotfiles repo and configure this machine
+pauldot init --scaffold <path>                       Generate a starter dotfiles repo structure
+pauldot init --scaffold <path> --port-existing-zshrc  Also port aliases and config from ~/.zshrc into the scaffold
 pauldot apply                    Reconcile current profile (zshrc + tools)
 pauldot status                   Dry-run apply — show what would change
 pauldot doctor                   Health check
@@ -65,6 +68,9 @@ pauldot alias add <key> <value>  Add an alias to aliases.zsh
 pauldot alias list               List defined aliases
 
 pauldot sync                     Pull latest changes; push local commits
+pauldot absorb                   Absorb external zshrc modifications into source files
+pauldot absorb --dry-run         Show what would be absorbed without writing
+pauldot absorb --target <file>   Absorb into a specific source file (default: zshrc.base)
 pauldot edit [profile|tools|zshrc|pauldot]  Open a dotfiles file in $EDITOR
 
 pauldot help bootstrap           Bootstrap walkthrough for new machines

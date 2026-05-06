@@ -18,12 +18,8 @@ class ZshrcResult(pydantic.BaseModel):
     backup: pathlib.Path | None = None
 
 
-def generate_zshrc(repo_path: pathlib.Path, profile: profiles.ResolvedProfile) -> pathlib.Path:
-    """Write ~/.pauldot/files/.zshrc.generated from the resolved profile.
-
-    Sources profile zshrc files in order (parent first), then aliases.zsh, then .env.generated.
-    Returns the path to the generated file.
-    """
+def expected_content(repo_path: pathlib.Path, profile: profiles.ResolvedProfile) -> str:
+    """Return the content pauldot would write to .zshrc.generated, without writing it."""
     aliases = repo_path / "files" / "aliases.zsh"
     env_generated = repo_path / "files" / ".env.generated"
 
@@ -38,9 +34,18 @@ def generate_zshrc(repo_path: pathlib.Path, profile: profiles.ResolvedProfile) -
         lines.append(f"source {aliases}")
     lines.append(f"[ -f {env_generated} ] && source {env_generated}")
 
+    return "\n".join(lines) + "\n"
+
+
+def generate_zshrc(repo_path: pathlib.Path, profile: profiles.ResolvedProfile) -> pathlib.Path:
+    """Write ~/.pauldot/files/.zshrc.generated from the resolved profile.
+
+    Sources profile zshrc files in order (parent first), then aliases.zsh, then .env.generated.
+    Returns the path to the generated file.
+    """
     generated = repo_path / GENERATED_ZSHRC_REL
     generated.parent.mkdir(parents=True, exist_ok=True)
-    generated.write_text("\n".join(lines) + "\n")
+    generated.write_text(expected_content(repo_path, profile))
     return generated
 
 

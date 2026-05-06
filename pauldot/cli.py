@@ -11,8 +11,9 @@ from rich import console as rich_console
 from rich import table as rich_table
 from rich import text as rich_text
 
+from pauldot import absorb as pauldot_absorb
 from pauldot import apply as pauldot_apply
-from pauldot import config, git, profiles, scaffold, state, zshrc
+from pauldot import config, git, port, profiles, scaffold, state, zshrc
 from pauldot.commands import alias as cmd_alias
 from pauldot.commands import help as cmd_help
 from pauldot.commands import profile as cmd_profile
@@ -76,8 +77,16 @@ def init(
         pathlib.Path | None,
         typer.Option("--scaffold", help="Generate a starter dotfiles repo at this path instead of cloning."),
     ] = None,
+    port_zshrc: typing.Annotated[
+        bool,
+        typer.Option("--port-existing-zshrc", help="Port ~/.zshrc into the scaffold. Requires --scaffold."),
+    ] = False,
 ) -> None:
     """Clone your dotfiles repo and configure this machine."""
+    if port_zshrc and scaffold_path is None:
+        console.print("[red]Error:[/red] --port-existing-zshrc requires --scaffold.")
+        raise typer.Exit(1)
+
     if scaffold_path is not None:
         try:
             created = scaffold.generate(scaffold_path)
@@ -88,6 +97,19 @@ def init(
         console.print(f"✓ Scaffolded dotfiles repo at {scaffold_path}")
         for path in created:
             console.print(f"  {path.relative_to(scaffold_path)}", style="dim")
+
+        if port_zshrc:
+            try:
+                result = port.port(pathlib.Path.home(), scaffold_path)
+            except (FileNotFoundError, ValueError) as e:
+                console.print(f"[yellow]⚠[/yellow] Could not port ~/.zshrc: {e}")
+            else:
+                console.print(f"\n✓ Ported ~/.zshrc — {result.zshrc_line_count} lines → zshrc.base")
+                if result.aliases_added:
+                    console.print(f"  {len(result.aliases_added)} aliases → aliases.zsh")
+                if result.aliases_skipped:
+                    console.print(f"  {len(result.aliases_skipped)} aliases skipped (already defined)", style="dim")
+
         console.print("\nNext steps:")
         console.print("  1. Edit pauldot.toml — set your profile and preferences.")
         console.print("  2. Edit bootstrap.sh — set PAULDOT_REPO to your repo URL.")
@@ -301,3 +323,48 @@ def sync() -> None:
             raise typer.Exit(1) from None
     else:
         console.print("  Nothing to push.")
+
+
+@app.command("absorb")
+def absorb_cmd(
+    target: typing.Annotated[
+        str,
+        typer.Option("--target", help="Source file to absorb into (relative to files/)."),
+    ] = "zshrc.base",
+    dry_run: typing.Annotated[
+        bool, typer.Option("--dry-run", help="Show what would be absorbed without writing anything.")
+    ] = False,
+) -> None:
+    """Absorb external zshrc modifications back into your dotfiles source files.
+
+    Diffs .zshrc.generated against what pauldot would generate and appends the
+    extra lines (written by tools like nvm, pyenv, brew) to the target source file.
+    """
+    home = pathlib.Path.home()
+    repo_path = home / ".pauldot"
+
+    try:
+        result = pauldot_absorb.absorb(home, repo_path, target_name=target, dry_run=dry_run)
+    except (FileNotFoundError, ValueError) as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1) from None
+
+    if not result.lines:
+        console.print("Nothing to absorb.")
+        return
+
+    if dry_run:
+        console.print(f"Would absorb {len(result.lines)} line(s) into files/{target}:\n")
+        for line in result.lines:
+            console.print(f"  {line}", style="dim")
+        return
+
+    console.print(f"✓ Absorbed {len(result.lines)} line(s) into {result.target}")
+
+    try:
+        cfg = config.load_pauldot_config(repo_path)
+        if cfg.git.auto_commit:
+            git.commit(repo_path, "pauldot: absorb zshrc modifications")
+            console.print("✓ Committed to dotfiles repo.")
+    except (FileNotFoundError, RuntimeError):
+        pass  # auto-commit is best-effort

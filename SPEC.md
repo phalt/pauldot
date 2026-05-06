@@ -163,6 +163,8 @@ pauldot help bootstrap               # bootstrap walkthrough
 pauldot help fork                    # how to fork & customise
 pauldot help gh                      # gh auth walkthrough
 
+pauldot absorb                       # absorb external modifications to .zshrc.generated back into source files
+
 pauldot edit [profile|tools|zshrc|pauldot]
 ```
 
@@ -352,6 +354,54 @@ pauldot is the engine; the dotfiles repo is your config.
 That's it. pauldot itself is unchanged — you just point it at your repo.
 ```
 
+## How `pauldot absorb` works
+
+The problem: `~/.zshrc` is a symlink to `.zshrc.generated`. When external tools (nvm, pyenv, brew, etc.) install themselves they append to `~/.zshrc`, which means they modify `.zshrc.generated` directly. The next `pauldot apply` regenerates that file from source, silently wiping those additions.
+
+`pauldot absorb` recovers those additions and commits them back into the source files.
+
+**Steps:**
+
+1. Read `.zshrc.generated` (the live, possibly-modified file)
+2. Reconstruct what pauldot would generate from the current source files (without writing anything)
+3. Diff: lines in the live file that are not in the reconstructed output = external additions
+4. Append those lines to the target source file (default: `files/zshrc.base`)
+5. If `git.auto_commit = true`, commit the change
+
+**Flags:**
+
+```
+pauldot absorb                     # absorb into zshrc.base (default)
+pauldot absorb --target zshrc.work # absorb into a specific source file
+pauldot absorb --dry-run           # print what would be absorbed without writing
+```
+
+**Behaviour:**
+
+- If `.zshrc.generated` does not exist or is not a symlink target, exits with a clear error
+- If there are no external additions, prints "Nothing to absorb." and exits cleanly
+- Strips blank lines and comment-only blocks from the diff before appending to keep source files clean
+- Never modifies `.zshrc.generated` directly — only the source files
+- The diff is line-order-preserving: additions appear in the order they were appended by tools
+
+**Example session:**
+
+```
+$ nvm install --lts
+# nvm appends to ~/.zshrc (i.e. .zshrc.generated)
+
+$ pauldot absorb --dry-run
+Would append 3 lines to files/zshrc.base:
+
+  export NVM_DIR="$HOME/.nvm"
+  [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+  [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+
+$ pauldot absorb
+✓ Absorbed 3 lines into files/zshrc.base
+✓ Committed to dotfiles repo.
+```
+
 ## How the generated zshrc works
 
 `~/.zshrc` is a symlink to `~/.pauldot/files/.zshrc.generated`:
@@ -442,6 +492,16 @@ All commands assume `uv`. README examples consistently use `uv run pauldot ...` 
 - [x] `bootstrap.sh` template in scaffold
 - [x] GitHub Actions for PyPI publishing
 - [x] README polish
+
+### v0.7 — absorb
+
+- [x] `pauldot absorb` command
+- [x] `absorb.py` module with diff + append logic
+- [x] `--dry-run` flag on absorb
+- [x] `--target` flag to choose destination file (defaults to `zshrc.base`)
+- [x] Auto-commit absorbed changes if `git.auto_commit = true`
+- [x] Tests for absorb logic
+- [x] README update
 
 ### Beyond — defer
 

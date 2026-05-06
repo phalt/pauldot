@@ -63,7 +63,7 @@ uv run pauldot status          # dry-run apply, no side effects
 
 ## Implementation Progress
 
-Current phase: **Phase 0.6**
+Current phase: **Phase 0.7**
 
 After completing each phase action, check it off in `spec.md` (change `- [ ]` to `- [x]`) and update the current phase note here if the phase changes.
 
@@ -75,6 +75,7 @@ Phases (see `spec.md` for full detail):
 - Phase 0.4 — quality of life (alias add, doctor, sync, help commands)
 - Phase 0.5 — ~~encryption (age, keys, secrets)~~ — skipped, out of scope
 - Phase 0.6 — fork-friendliness (`init --scaffold`, distribution, README)
+- Phase 0.7 — `pauldot absorb` (recover external zshrc modifications into source files)
 
 ## Architecture
 
