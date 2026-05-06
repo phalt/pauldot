@@ -34,6 +34,17 @@ def commit(repo_path: pathlib.Path, message: str) -> None:
         raise RuntimeError(f"git commit failed:\n{result.stderr.strip()}")
 
 
+def has_uncommitted_changes(repo_path: pathlib.Path) -> bool:
+    """Return True if there are staged or unstaged changes in the working tree."""
+    result = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=repo_path,
+        capture_output=True,
+        text=True,
+    )
+    return bool(result.stdout.strip())
+
+
 def has_unpushed_commits(repo_path: pathlib.Path) -> bool:
     """Return True if there are local commits not yet on the remote."""
     result = subprocess.run(

@@ -305,6 +305,22 @@ def sync() -> None:
         console.print("[red]Error:[/red] Dotfiles repo not found. Run `pauldot init <repo-url>`.")
         raise typer.Exit(1)
 
+    if git.has_uncommitted_changes(repo_path):
+        try:
+            cfg = config.load_pauldot_config(repo_path)
+            if cfg.git.auto_commit:
+                git.commit(repo_path, "pauldot: commit local changes before sync")
+                console.print("✓ Committed local changes.")
+            else:
+                console.print(
+                    "[red]Error:[/red] You have uncommitted changes.\n"
+                    "Commit or stash them before syncing, or set auto_commit = true in pauldot.toml."
+                )
+                raise typer.Exit(1)
+        except RuntimeError as e:
+            console.print(f"[red]Error:[/red] {e}")
+            raise typer.Exit(1) from None
+
     try:
         output = git.pull_rebase(repo_path)
         if output:

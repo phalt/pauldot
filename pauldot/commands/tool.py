@@ -8,7 +8,7 @@ from rich import console as rich_console
 from rich import table as rich_table
 from rich import text as rich_text
 
-from pauldot import config, profiles, shell, state, tools
+from pauldot import config, git, profiles, shell, state, tools
 
 tool_app = typer.Typer()
 
@@ -131,6 +131,14 @@ def tool_add() -> None:
     config.save_tools(repo_path, [*existing, new_tool])
     console.print(f"✓ Added '{name}' to tools/tools.toml.")
 
+    try:
+        cfg = config.load_pauldot_config(repo_path)
+        if cfg.git.auto_commit:
+            git.commit(repo_path, f"pauldot: add tool {name}")
+            console.print("✓ Committed to dotfiles repo.")
+    except (FileNotFoundError, RuntimeError):
+        pass  # auto-commit is best-effort
+
 
 @tool_app.command("remove")
 def tool_remove(name: str) -> None:
@@ -145,3 +153,11 @@ def tool_remove(name: str) -> None:
 
     config.save_tools(repo_path, updated)
     console.print(f"✓ Removed '{name}' from tools/tools.toml.")
+
+    try:
+        cfg = config.load_pauldot_config(repo_path)
+        if cfg.git.auto_commit:
+            git.commit(repo_path, f"pauldot: remove tool {name}")
+            console.print("✓ Committed to dotfiles repo.")
+    except (FileNotFoundError, RuntimeError):
+        pass  # auto-commit is best-effort
