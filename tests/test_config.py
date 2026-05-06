@@ -73,3 +73,51 @@ def test_list_profiles_empty(repo):
 
 def test_list_profiles_no_dir(tmp_path):
     assert config.list_profiles(tmp_path / "nonexistent") == []
+
+
+# — tool config ————————————————————————————————————————————————————————————————
+
+
+def test_load_tools(repo):
+    (repo / "tools").mkdir()
+    (repo / "tools" / "tools.toml").write_text(
+        '[[tool]]\nname = "uv"\ncheck = "command -v uv"\n\n'
+        '[tool.install]\nmacos = "brew install uv"\nlinux = "curl | sh"\n\n'
+        '[[tool]]\nname = "obsidian"\ncheck = "test -d /Applications/Obsidian.app"\n\n'
+        '[tool.install]\nmacos = "brew install --cask obsidian"\n'
+    )
+    tool_list = config.load_tools(repo)
+    assert len(tool_list) == 2
+    assert tool_list[0].name == "uv"
+    assert tool_list[0].install.linux == "curl | sh"
+    assert tool_list[1].name == "obsidian"
+    assert tool_list[1].install.linux is None
+
+
+def test_load_tools_missing_file(repo):
+    assert config.load_tools(repo) == []
+
+
+def test_save_and_load_tools_roundtrip(repo):
+    (repo / "tools").mkdir()
+    tool_list = [
+        config.ToolDefinition(
+            name="uv",
+            check="command -v uv",
+            install=config.ToolInstall(macos="brew install uv", linux="curl | sh"),
+        ),
+        config.ToolDefinition(
+            name="obsidian",
+            check="test -d /Applications/Obsidian.app",
+            install=config.ToolInstall(macos="brew install --cask obsidian"),
+        ),
+    ]
+    config.save_tools(repo, tool_list)
+    loaded = config.load_tools(repo)
+
+    assert len(loaded) == 2
+    assert loaded[0].name == "uv"
+    assert loaded[0].install.macos == "brew install uv"
+    assert loaded[0].install.linux == "curl | sh"
+    assert loaded[1].name == "obsidian"
+    assert loaded[1].install.linux is None

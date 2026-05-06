@@ -156,15 +156,37 @@ def test_dry_run_does_not_modify_filesystem(fake_home, target):
 def test_apply_run_creates_symlink(fake_home, repo, saved_state):
     result = apply.run(fake_home)
     link = fake_home / ".zshrc"
-    assert result.action == "created"
+    assert result.zshrc.action == "created"
     assert link.is_symlink()
 
 
 def test_apply_run_dry_run_no_symlink(fake_home, repo, saved_state):
     result = apply.run(fake_home, dry_run=True)
     link = fake_home / ".zshrc"
-    assert result.action == "created"
+    assert result.zshrc.action == "created"
     assert not link.exists()
+
+
+def test_apply_run_dry_run_skips_tools(fake_home, repo, saved_state):
+    """Tool reconciliation is skipped entirely in dry_run mode."""
+    (repo / "tools").mkdir()
+    (repo / "tools" / "tools.toml").write_text(
+        '[[tool]]\nname = "t"\ncheck = "false"\n\n[tool.install]\nlinux = "true"\n'
+    )
+    (repo / "profiles" / "base.toml").write_text('zshrc = "files/zshrc.base"\ntools = ["t"]\n')
+    result = apply.run(fake_home, dry_run=True)
+    assert result.tools == []
+
+
+def test_apply_run_reconciles_tools(fake_home, repo, saved_state):
+    """Tools in the active profile are reconciled during apply."""
+    (repo / "tools").mkdir()
+    (repo / "tools" / "tools.toml").write_text('[[tool]]\nname = "t"\ncheck = "true"\n')
+    (repo / "profiles" / "base.toml").write_text('zshrc = "files/zshrc.base"\ntools = ["t"]\n')
+    result = apply.run(fake_home)
+    assert len(result.tools) == 1
+    assert result.tools[0].name == "t"
+    assert result.tools[0].action == "already_installed"
 
 
 def test_apply_run_no_state_raises(fake_home, repo):

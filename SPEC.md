@@ -472,10 +472,10 @@ All commands assume `uv`. README examples consistently use `uv run pauldot ...` 
 
 ### v0.3 — tools
 
-- `tools/tools.toml`
-- `pauldot tool list / install / add / remove`
-- OS detection
-- Apply runs tool reconciliation
+- [x] `tools/tools.toml`
+- [x] `pauldot tool list / install / add / remove`
+- [x] OS detection
+- [x] Apply runs tool reconciliation
 
 ### v0.4 — quality of life
 

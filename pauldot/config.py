@@ -1,10 +1,11 @@
-"""Pydantic models and loading for pauldot.toml and profile files."""
+"""Pydantic models and loading for pauldot.toml, profiles, and tools."""
 
 import pathlib
 import tomllib
 import typing
 
 import pydantic
+import tomli_w
 
 
 class CoreConfig(pydantic.BaseModel):
@@ -43,6 +44,17 @@ class ProfileConfig(pydantic.BaseModel):
     env: dict[str, str] = pydantic.Field(default_factory=dict)
 
 
+class ToolInstall(pydantic.BaseModel):
+    macos: str | None = None
+    linux: str | None = None
+
+
+class ToolDefinition(pydantic.BaseModel):
+    name: str
+    check: str
+    install: ToolInstall = pydantic.Field(default_factory=ToolInstall)
+
+
 def load_pauldot_config(repo_path: pathlib.Path) -> PauldotConfig:
     """Load and validate pauldot.toml from the dotfiles repo."""
     path = repo_path / "pauldot.toml"
@@ -71,3 +83,21 @@ def list_profiles(repo_path: pathlib.Path) -> list[str]:
     if not profiles_dir.exists():
         return []
     return sorted(p.stem for p in profiles_dir.glob("*.toml"))
+
+
+def load_tools(repo_path: pathlib.Path) -> list[ToolDefinition]:
+    """Load tool definitions from tools/tools.toml. Returns empty list if file doesn't exist."""
+    path = repo_path / "tools" / "tools.toml"
+    if not path.exists():
+        return []
+    with path.open("rb") as f:
+        data = tomllib.load(f)
+    return [ToolDefinition.model_validate(t) for t in data.get("tool", [])]
+
+
+def save_tools(repo_path: pathlib.Path, tool_list: list[ToolDefinition]) -> None:
+    """Write tool definitions back to tools/tools.toml."""
+    path = repo_path / "tools" / "tools.toml"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data: dict = {"tool": [t.model_dump(exclude_none=True) for t in tool_list]}
+    path.write_bytes(tomli_w.dumps(data).encode())
