@@ -10,7 +10,7 @@ def generate(dest: pathlib.Path) -> list[pathlib.Path]:
 
     Raises FileExistsError if dest exists and is non-empty.
     """
-    if dest.exists() and any(dest.iterdir()):
+    if dest.exists() and any(p for p in dest.iterdir() if not p.name.startswith(".")):
         raise FileExistsError(f"{dest} already exists and is not empty.")
 
     template_ref = importlib.resources.files("pauldot").joinpath("templates/scaffold")

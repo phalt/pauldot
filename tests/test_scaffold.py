@@ -49,3 +49,12 @@ def test_generate_succeeds_if_dest_empty_dir(tmp_path):
     dest.mkdir()
     scaffold.generate(dest)
     assert (dest / "pauldot.toml").exists()
+
+
+def test_generate_succeeds_if_dest_has_only_dotgit(tmp_path):
+    """A freshly-cloned empty git repo (just .git/) should be treated as empty."""
+    dest = tmp_path / "dotfiles"
+    dest.mkdir()
+    (dest / ".git").mkdir()
+    scaffold.generate(dest)
+    assert (dest / "pauldot.toml").exists()
