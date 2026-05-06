@@ -437,11 +437,11 @@ All commands assume `uv`. README examples consistently use `uv run pauldot ...` 
 
 ### v0.6 — fork-friendliness and distribution
 
-- `pauldot init --scaffold`
-- `pauldot help fork`
-- `bootstrap.sh` template in scaffold
-- GitHub Actions for PyPI publishing
-- README polish
+- [x] `pauldot init --scaffold`
+- [x] `pauldot help fork`
+- [x] `bootstrap.sh` template in scaffold
+- [x] GitHub Actions for PyPI publishing
+- [x] README polish
 
 ### Beyond — defer
 

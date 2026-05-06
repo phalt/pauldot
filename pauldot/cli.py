@@ -12,7 +12,7 @@ from rich import table as rich_table
 from rich import text as rich_text
 
 from pauldot import apply as pauldot_apply
-from pauldot import config, git, profiles, state, zshrc
+from pauldot import config, git, profiles, scaffold, state, zshrc
 from pauldot.commands import alias as cmd_alias
 from pauldot.commands import help as cmd_help
 from pauldot.commands import profile as cmd_profile
@@ -72,8 +72,28 @@ def _print_apply_result(result: pauldot_apply.ApplyResult, dry_run: bool) -> Non
 @app.command()
 def init(
     repo_url: typing.Annotated[str | None, typer.Argument()] = None,
+    scaffold_path: typing.Annotated[
+        pathlib.Path | None,
+        typer.Option("--scaffold", help="Generate a starter dotfiles repo at this path instead of cloning."),
+    ] = None,
 ) -> None:
     """Clone your dotfiles repo and configure this machine."""
+    if scaffold_path is not None:
+        try:
+            created = scaffold.generate(scaffold_path)
+        except FileExistsError as e:
+            console.print(f"[red]Error:[/red] {e}")
+            raise typer.Exit(1) from None
+
+        console.print(f"✓ Scaffolded dotfiles repo at {scaffold_path}")
+        for path in created:
+            console.print(f"  {path.relative_to(scaffold_path)}", style="dim")
+        console.print("\nNext steps:")
+        console.print("  1. Edit pauldot.toml — set your profile and preferences.")
+        console.print("  2. Edit bootstrap.sh — set PAULDOT_REPO to your repo URL.")
+        console.print("  3. Push to GitHub and run `pauldot help fork` for the full walkthrough.")
+        return
+
     home = pathlib.Path.home()
     repo_path = home / ".pauldot"
 

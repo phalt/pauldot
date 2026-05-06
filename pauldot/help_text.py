@@ -73,8 +73,12 @@ pauldot is the engine; the dotfiles repo is your config.
 5. Commit and push:
      cd dotfiles && git add . && git commit -m "init" && git push
 
-6. On other machines:
+6. On other machines, either use the bootstrap script:
      curl -sSL https://raw.githubusercontent.com/<you>/dotfiles/main/bootstrap.sh | sh
+
+   Or, if pauldot is already installed:
+     pauldot init git@github.com:<you>/dotfiles
+     pauldot apply
 
 That's it. pauldot itself is unchanged — you just point it at your repo.\
 """
