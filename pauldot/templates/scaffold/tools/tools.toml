@@ -1,8 +1,10 @@
 # Declare tools here. pauldot apply installs anything that's missing.
-# See spec.md for the full schema.
+# pauldot tool update <name> runs the update command.
 
 # [[tool]]
 # name = "starship"
 # check = "command -v starship"
 # install.macos = "brew install starship"
 # install.linux = "curl -sS https://starship.rs/install.sh | sh -s -- -y"
+# update.macos = "brew upgrade starship"
+# update.linux = "curl -sS https://starship.rs/install.sh | sh -s -- -y"

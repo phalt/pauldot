@@ -138,14 +138,10 @@ def init(
 
 
 @app.command()
-def apply(
-    verbose: typing.Annotated[
-        bool, typer.Option("--verbose", "-v", help="Show subprocess output from tool installs.")
-    ] = False,
-) -> None:
-    """Reconcile current profile: symlink ~/.zshrc, install missing tools."""
+def apply() -> None:
+    """Reconcile current profile: write ~/.zshrc, install missing tools."""
     try:
-        result = pauldot_apply.run(pathlib.Path.home(), verbose=verbose)
+        result = pauldot_apply.run(pathlib.Path.home(), console=console)
     except (FileNotFoundError, RuntimeError) as e:
         console.print(f"[red]Error:[/red] {e}")
         raise typer.Exit(1) from None

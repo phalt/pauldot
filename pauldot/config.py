@@ -42,10 +42,16 @@ class ToolInstall(pydantic.BaseModel):
     linux: str | None = None
 
 
+class ToolUpdate(pydantic.BaseModel):
+    macos: str | None = None
+    linux: str | None = None
+
+
 class ToolDefinition(pydantic.BaseModel):
     name: str
     check: str
     install: ToolInstall = pydantic.Field(default_factory=ToolInstall)
+    update: ToolUpdate = pydantic.Field(default_factory=ToolUpdate)
 
 
 def load_pauldot_config(repo_path: pathlib.Path) -> PauldotConfig:
@@ -93,4 +99,18 @@ def save_tools(repo_path: pathlib.Path, tool_list: list[ToolDefinition]) -> None
     path = repo_path / "tools" / "tools.toml"
     path.parent.mkdir(parents=True, exist_ok=True)
     data: dict = {"tool": [t.model_dump(exclude_none=True) for t in tool_list]}
+    path.write_bytes(tomli_w.dumps(data).encode())
+
+
+def add_tool_to_profile(repo_path: pathlib.Path, profile_name: str, tool_name: str) -> None:
+    """Append tool_name to the tools list in profiles/<profile_name>.toml."""
+    path = repo_path / "profiles" / f"{profile_name}.toml"
+    if not path.exists():
+        raise FileNotFoundError(f"Profile '{profile_name}' not found at {path}.")
+    with path.open("rb") as f:
+        data = tomllib.load(f)
+    tools_list: list[str] = data.get("tools", [])
+    if tool_name not in tools_list:
+        tools_list.append(tool_name)
+    data["tools"] = tools_list
     path.write_bytes(tomli_w.dumps(data).encode())

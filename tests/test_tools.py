@@ -1,13 +1,24 @@
-"""Tests for tools.py — tool check, install, and reconcile logic."""
+"""Tests for tools.py — tool check, install, update, and reconcile logic."""
+
+import subprocess
+import unittest.mock
 
 from pauldot import config, tools
 
 
-def _tool(name: str, check: str, macos: str | None = None, linux: str | None = None) -> config.ToolDefinition:
+def _tool(
+    name: str,
+    check: str,
+    macos: str | None = None,
+    linux: str | None = None,
+    update_macos: str | None = None,
+    update_linux: str | None = None,
+) -> config.ToolDefinition:
     return config.ToolDefinition(
         name=name,
         check=check,
         install=config.ToolInstall(macos=macos, linux=linux),
+        update=config.ToolUpdate(macos=update_macos, linux=update_linux),
     )
 
 
@@ -43,6 +54,26 @@ def test_install_skipped_no_os_entry():
 def test_install_failed_records_error():
     result = tools.install(_tool("t", check="false", linux="false"), "linux")
     assert result.action == "failed"
+    assert result.error is not None
+
+
+def test_install_does_not_use_capture_output():
+    """install() must not pass capture_output — output streams to the terminal."""
+    with unittest.mock.patch("subprocess.run") as mock_run:
+        mock_run.return_value = unittest.mock.Mock(spec=subprocess.CompletedProcess, returncode=0)
+        mock_run.side_effect = [
+            unittest.mock.Mock(spec=subprocess.CompletedProcess, returncode=1),  # check fails
+            unittest.mock.Mock(spec=subprocess.CompletedProcess, returncode=0),  # install succeeds
+        ]
+        tools.install(_tool("t", check="false", linux="true"), "linux")
+        install_call = mock_run.call_args_list[1]
+        assert "capture_output" not in install_call.kwargs or install_call.kwargs["capture_output"] is False
+
+
+def test_install_no_output_field():
+    """ToolResult has no output field after removing verbose mode."""
+    result = tools.install(_tool("t", check="true"), "linux")
+    assert not hasattr(result, "output")
 
 
 def test_reconcile_processes_all():
@@ -79,41 +110,40 @@ def test_reconcile_empty_profile():
     assert results == []
 
 
-# — verbose output ————————————————————————————————————————————————————————————
+# — update() ——————————————————————————————————————————————————————————————————
 
 
-def test_install_verbose_captures_output_on_success():
-    """verbose=True populates result.output for a successful install."""
-    result = tools.install(_tool("t", check="false", linux="echo hello"), "linux", verbose=True)
-    assert result.action == "installed"
-    assert result.output is not None
-    assert "hello" in result.output
+def test_update_installed_with_command():
+    result = tools.update(_tool("t", check="true", update_linux="true"), "linux")
+    assert result.action == "updated"
+    assert result.error is None
 
 
-def test_install_verbose_captures_output_on_failure():
-    """verbose=True populates result.output even when install fails."""
-    result = tools.install(_tool("t", check="false", linux="echo oops && false"), "linux", verbose=True)
+def test_update_not_installed():
+    """update() on a missing tool returns not_installed without running the update command."""
+    result = tools.update(_tool("t", check="false", update_linux="true"), "linux")
+    assert result.action == "not_installed"
+
+
+def test_update_no_update_command():
+    """Tool without an update command for the current OS is skipped."""
+    result = tools.update(_tool("t", check="true", update_macos="brew upgrade t"), "linux")
+    assert result.action == "skipped"
+
+
+def test_update_failed():
+    result = tools.update(_tool("t", check="true", update_linux="false"), "linux")
     assert result.action == "failed"
-    assert result.output is not None
-    assert "oops" in result.output
+    assert result.error is not None
 
 
-def test_install_not_verbose_no_output():
-    """Without verbose, result.output is None."""
-    result = tools.install(_tool("t", check="false", linux="echo hello"), "linux", verbose=False)
-    assert result.output is None
-
-
-def test_install_already_installed_no_output():
-    """Already-installed tools never populate output regardless of verbose."""
-    result = tools.install(_tool("t", check="true", linux="echo hello"), "linux", verbose=True)
-    assert result.action == "already_installed"
-    assert result.output is None
-
-
-def test_reconcile_verbose_passed_through():
-    """verbose flag is threaded through reconcile to each install call."""
-    all_tools = {"t": _tool("t", check="false", linux="echo hi")}
-    results = tools.reconcile(["t"], all_tools, "linux", verbose=True)
-    assert results[0].output is not None
-    assert "hi" in results[0].output
+def test_update_does_not_use_capture_output():
+    """update() must not pass capture_output — output streams to the terminal."""
+    with unittest.mock.patch("subprocess.run") as mock_run:
+        mock_run.side_effect = [
+            unittest.mock.Mock(spec=subprocess.CompletedProcess, returncode=0),  # check passes
+            unittest.mock.Mock(spec=subprocess.CompletedProcess, returncode=0),  # update succeeds
+        ]
+        tools.update(_tool("t", check="true", update_linux="true"), "linux")
+        update_call = mock_run.call_args_list[1]
+        assert "capture_output" not in update_call.kwargs or update_call.kwargs["capture_output"] is False

@@ -98,3 +98,14 @@ def test_apply_run_migrates_symlink(fake_home, repo, saved_state):
 def test_apply_run_no_state_raises(fake_home, repo):
     with pytest.raises(FileNotFoundError, match="pauldot init"):
         apply.run(fake_home)
+
+
+def test_apply_run_does_not_install_tool_not_in_profile(fake_home, repo, saved_state):
+    """A tool defined in tools.toml but absent from the active profile's tools list is not installed."""
+    (repo / "tools").mkdir()
+    (repo / "tools" / "tools.toml").write_text(
+        '[[tool]]\nname = "extra"\ncheck = "false"\n\n[tool.install]\nlinux = "true"\n'
+    )
+    # base profile has no tools list — extra should not be installed
+    result = apply.run(fake_home)
+    assert all(r.name != "extra" for r in result.tools)

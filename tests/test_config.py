@@ -120,3 +120,55 @@ def test_save_and_load_tools_roundtrip(repo):
     assert loaded[0].install.linux == "curl | sh"
     assert loaded[1].name == "obsidian"
     assert loaded[1].install.linux is None
+
+
+def test_tool_definition_parses_update_fields(repo):
+    (repo / "tools").mkdir()
+    (repo / "tools" / "tools.toml").write_text(
+        '[[tool]]\nname = "uv"\ncheck = "command -v uv"\n\n'
+        '[tool.install]\nmacos = "curl | sh"\nlinux = "curl | sh"\n\n'
+        '[tool.update]\nmacos = "uv self update"\nlinux = "uv self update"\n'
+    )
+    tool_list = config.load_tools(repo)
+    assert tool_list[0].update.macos == "uv self update"
+    assert tool_list[0].update.linux == "uv self update"
+
+
+def test_tool_definition_defaults_update_to_none(repo):
+    (repo / "tools").mkdir()
+    (repo / "tools" / "tools.toml").write_text('[[tool]]\nname = "uv"\ncheck = "command -v uv"\n')
+    tool_list = config.load_tools(repo)
+    assert tool_list[0].update.macos is None
+    assert tool_list[0].update.linux is None
+
+
+# — add_tool_to_profile() ——————————————————————————————————————————————————————
+
+
+def test_add_tool_to_profile_appends(repo):
+    (repo / "profiles" / "base.toml").write_text('tools = ["git"]\n')
+    config.add_tool_to_profile(repo, "base", "uv")
+    loaded = config.load_profile(repo, "base")
+    assert "git" in loaded.tools
+    assert "uv" in loaded.tools
+
+
+def test_add_tool_to_profile_idempotent(repo):
+    (repo / "profiles" / "base.toml").write_text('tools = ["git"]\n')
+    config.add_tool_to_profile(repo, "base", "git")
+    loaded = config.load_profile(repo, "base")
+    assert loaded.tools.count("git") == 1
+
+
+def test_add_tool_to_profile_creates_tools_list(repo):
+    (repo / "profiles" / "base.toml").write_text("")
+    config.add_tool_to_profile(repo, "base", "uv")
+    loaded = config.load_profile(repo, "base")
+    assert "uv" in loaded.tools
+
+
+def test_add_tool_to_profile_missing_profile(repo):
+    import pytest
+
+    with pytest.raises(FileNotFoundError, match="nonexistent"):
+        config.add_tool_to_profile(repo, "nonexistent", "uv")

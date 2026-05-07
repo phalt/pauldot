@@ -1718,19 +1718,19 @@ Fixes two silent bugs and adds auto-apply consistency.
 
 Independent of everything above. Can be done in parallel if needed, but do after Phase 1 so tests are clean.
 
-- [ ] Remove `verbose` param and `output` field from `tools.py`; switch to streaming subprocess
-- [ ] Add optional `console` param to `install()` and `reconcile()`
-- [ ] Remove `--verbose` from `apply` command in `cli.py`; pass `console` to `reconcile()`
-- [ ] Remove `--verbose` from `tool install` command in `commands/tool.py`
-- [ ] Add `ToolUpdate` model to `config.py`; add `update` field to `ToolDefinition`
-- [ ] Add `update()` function to `tools.py`; expand `ToolResult.action` literal
-- [ ] Add `tool_update` command to `commands/tool.py`
-- [ ] Update `tool_add`: add `--profile` flag; add `add_tool_to_profile()` helper to `config.py`; prompt for update commands
-- [ ] Update `tool list` to show a `Profiles` column (which profiles include each tool)
-- [ ] Update scaffold `tools/tools.toml` with update example
-- [ ] Update `tests/test_tools.py`: remove `output` assertions; add streaming tests; add update tests
-- [ ] Update `tests/test_config.py`: add `ToolUpdate` parse tests; add `add_tool_to_profile()` tests; assert `--profile` flag writes to correct profile TOML
-- [ ] Update `tests/test_apply.py`: assert that a tool defined in `tools/tools.toml` but not in the active profile's `tools` list is NOT installed by apply
+- [x] Remove `verbose` param and `output` field from `tools.py`; switch to streaming subprocess
+- [x] Add optional `console` param to `install()` and `reconcile()`
+- [x] Remove `--verbose` from `apply` command in `cli.py`; pass `console` to `reconcile()`
+- [x] Remove `--verbose` from `tool install` command in `commands/tool.py`
+- [x] Add `ToolUpdate` model to `config.py`; add `update` field to `ToolDefinition`
+- [x] Add `update()` function to `tools.py`; expand `ToolResult.action` literal
+- [x] Add `tool_update` command to `commands/tool.py`
+- [x] Update `tool_add`: add `--profile` flag; add `add_tool_to_profile()` helper to `config.py`; prompt for update commands
+- [x] Update `tool list` to show a `Profiles` column (which profiles include each tool)
+- [x] Update scaffold `tools/tools.toml` with update example
+- [x] Update `tests/test_tools.py`: remove `output` assertions; add streaming tests; add update tests
+- [x] Update `tests/test_config.py`: add `ToolUpdate` parse tests; add `add_tool_to_profile()` tests; assert `--profile` flag writes to correct profile TOML
+- [x] Update `tests/test_apply.py`: assert that a tool defined in `tools/tools.toml` but not in the active profile's `tools` list is NOT installed by apply
 
 ---
 
