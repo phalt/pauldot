@@ -13,7 +13,8 @@ from rich import text as rich_text
 
 from pauldot import absorb as pauldot_absorb
 from pauldot import apply as pauldot_apply
-from pauldot import config, git, port, profiles, scaffold, state, zshrc
+from pauldot import config, git, profiles, scaffold, state, zshrc
+from pauldot import migrate as pauldot_migrate
 from pauldot.commands import alias as cmd_alias
 from pauldot.commands import help as cmd_help
 from pauldot.commands import profile as cmd_profile
@@ -77,16 +78,8 @@ def init(
         pathlib.Path | None,
         typer.Option("--scaffold", help="Generate a starter dotfiles repo at this path instead of cloning."),
     ] = None,
-    port_zshrc: typing.Annotated[
-        bool,
-        typer.Option("--port-existing-zshrc", help="Port ~/.zshrc into the scaffold. Requires --scaffold."),
-    ] = False,
 ) -> None:
     """Clone your dotfiles repo and configure this machine."""
-    if port_zshrc and scaffold_path is None:
-        console.print("[red]Error:[/red] --port-existing-zshrc requires --scaffold.")
-        raise typer.Exit(1)
-
     if scaffold_path is not None:
         try:
             created = scaffold.generate(scaffold_path)
@@ -97,18 +90,6 @@ def init(
         console.print(f"✓ Scaffolded dotfiles repo at {scaffold_path}")
         for path in created:
             console.print(f"  {path.relative_to(scaffold_path)}", style="dim")
-
-        if port_zshrc:
-            try:
-                result = port.port(pathlib.Path.home(), scaffold_path)
-            except (FileNotFoundError, ValueError) as e:
-                console.print(f"[yellow]⚠[/yellow] Could not port ~/.zshrc: {e}")
-            else:
-                console.print(f"\n✓ Ported ~/.zshrc — {result.zshrc_line_count} lines → zshrc.base")
-                if result.aliases_added:
-                    console.print(f"  {len(result.aliases_added)} aliases → aliases.zsh")
-                if result.aliases_skipped:
-                    console.print(f"  {len(result.aliases_skipped)} aliases skipped (already defined)", style="dim")
 
         console.print("\nNext steps:")
         console.print("  1. Edit pauldot.toml — set your profile and preferences.")
@@ -382,5 +363,67 @@ def absorb_cmd(
         if cfg.git.auto_commit:
             git.commit(repo_path, "pauldot: absorb zshrc modifications")
             console.print("✓ Committed to dotfiles repo.")
-    except (FileNotFoundError, RuntimeError):
+    except FileNotFoundError, RuntimeError:
         pass  # auto-commit is best-effort
+
+
+@app.command("migrate")
+def migrate_cmd(
+    dry_run: typing.Annotated[
+        bool, typer.Option("--dry-run", help="Show what would be migrated without writing anything.")
+    ] = False,
+) -> None:
+    """Migrate an existing ~/.zshrc into your pauldot dotfiles repo.
+
+    Splits aliases into files/aliases.zsh and everything else into files/zshrc.base.
+    Run this once on a machine that already has a ~/.zshrc before running `pauldot apply`.
+    """
+    home = pathlib.Path.home()
+    repo_path = home / ".pauldot"
+
+    if not repo_path.exists():
+        console.print("[red]Error:[/red] Dotfiles repo not found. Run `pauldot init <repo-url>` first.")
+        raise typer.Exit(1)
+
+    try:
+        result = pauldot_migrate.migrate(home, repo_path, dry_run=dry_run)
+    except (FileNotFoundError, ValueError) as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1) from None
+
+    t = rich_table.Table(show_header=False, box=None, padding=(0, 2))
+    t.add_column(no_wrap=True)
+    t.add_column(no_wrap=True)
+
+    prefix = "Would migrate" if dry_run else "✓ Migrated"
+
+    t.add_row(
+        rich_text.Text("files/zshrc.base", style="bold"),
+        rich_text.Text(f"{prefix} {result.zshrc_line_count} line(s)", style="dim" if dry_run else "green"),
+    )
+    t.add_row(
+        rich_text.Text("files/aliases.zsh", style="bold"),
+        rich_text.Text(f"{prefix} {len(result.aliases_added)} alias(es)", style="dim" if dry_run else "green"),
+    )
+    if result.aliases_skipped:
+        t.add_row(
+            rich_text.Text("  skipped", style="dim"),
+            rich_text.Text(
+                f"{len(result.aliases_skipped)} alias(es) already defined",
+                style="dim",
+            ),
+        )
+    console.print(t)
+
+    if dry_run:
+        return
+
+    try:
+        cfg = config.load_pauldot_config(repo_path)
+        if cfg.git.auto_commit:
+            git.commit(repo_path, "pauldot: migrate existing zshrc")
+            console.print("✓ Committed to dotfiles repo.")
+    except FileNotFoundError, RuntimeError:
+        pass  # auto-commit is best-effort
+
+    console.print("\nReview the changes, then run `pauldot apply` when ready.")

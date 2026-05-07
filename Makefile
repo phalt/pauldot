@@ -26,3 +26,9 @@ clean:  ## Clear cache files and build outputs
 
 release:  ## Build a new version and release it
 	uv build && uv publish
+
+docs-serve:  ## Serve docs locally with live reload
+	uv run --group docs mkdocs serve
+
+docs-build:  ## Build the docs site into site/
+	uv run --group docs mkdocs build

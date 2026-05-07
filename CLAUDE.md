@@ -41,13 +41,15 @@ All structural decisions (layout, tooling, conventions) follow [phalt/paulblish]
 
 - **OS detection is centralised in `shell.py`.** Two values only: `macos` or `linux`. No code branches on `platform.system()` directly anywhere else.
 
-- **Symlink, don't source.** `~/.zshrc` is a symlink to the generated file. Existing non-symlink `~/.zshrc` is backed up to `~/.zshrc.bak.<timestamp>` before being replaced.
+- **`~/.zshrc` is a plain file written by pauldot, not a symlink.** `apply` concatenates source files and writes the result directly to `~/.zshrc`. Pauldot detects ownership via the `PAULDOT_HEADER` constant on the first line. Existing non-pauldot `~/.zshrc` is backed up to `~/.zshrc.bak.<timestamp>` before being replaced.
 
 - **`gh` is shelled out.** `gh.py` wraps it; `pauldot help gh` is the user-facing walkthrough.
 
-- **`apply` and `sync` are separate verbs.** Apply is deterministic from local state. Sync handles git pull/push. Never combine them.
+- **`apply` and `sync` are separate verbs.** Apply is deterministic from local state. Sync handles git pull/push. They are separate — though `sync` will auto-apply after a pull that brings new commits.
 
 - **CLI output uses `rich`.** Tables for summaries, prompts via `rich.prompt`. No bare `print` in user-facing output.
+
+- **Tool subprocess output always streams.** Never use `capture_output=True` on tool install or update commands. Output appears live as the command runs.
 
 ## Development Commands
 
@@ -63,33 +65,43 @@ uv run pauldot status          # dry-run apply, no side effects
 
 ## Implementation Progress
 
-Current phase: **Phase 0.7**
+Current phase: **Refactor Phase 1 — Zshrc Engine Rewrite** (not yet started)
 
-After completing each phase action, check it off in `spec.md` (change `- [ ]` to `- [x]`) and update the current phase note here if the phase changes.
+The original build phases (0.1–0.7) are complete. All future work follows `SPEC_REFACTOR.md`. After completing each step within a phase, check it off there (change `- [ ]` to `- [x]`). Update the current phase note here when a phase completes.
 
-Phases (see `spec.md` for full detail):
+**Original build phases (complete):**
+- Phase 0.1 — single profile, hardcoded path, symlink + backup ✓
+- Phase 0.2 — TOML config, profiles, `pauldot init` ✓
+- Phase 0.3 — tool reconciliation ✓
+- Phase 0.4 — quality of life (alias add, doctor, sync, help commands) ✓
+- Phase 0.5 — ~~encryption~~ — skipped, out of scope
+- Phase 0.6 — fork-friendliness (`init --scaffold`, distribution, README) ✓
+- Phase 0.7 — `pauldot absorb` ✓
 
-- Phase 0.1 — single profile, hardcoded path, symlink + backup
-- Phase 0.2 — TOML config, profiles, `pauldot init`
-- Phase 0.3 — tool reconciliation
-- Phase 0.4 — quality of life (alias add, doctor, sync, help commands)
-- Phase 0.5 — ~~encryption (age, keys, secrets)~~ — skipped, out of scope
-- Phase 0.6 — fork-friendliness (`init --scaffold`, distribution, README)
-- Phase 0.7 — `pauldot absorb` (recover external zshrc modifications into source files)
+**Refactor phases (see `SPEC_REFACTOR.md` section 18 for full checklists):**
+- Refactor Phase 1 — Zshrc engine rewrite: plain-file output, drop symlink + generated-file model ← **current**
+- Refactor Phase 2 — Profile system fixes: env bug, auto-apply on alias add + profile set, display.py
+- Refactor Phase 3 — Tool streaming and update command
+- Refactor Phase 4 — Dotfile tracking (`pauldot track`, per-profile `dotfiles` list)
+- Refactor Phase 5 — Workflow improvements (`init --apply`, sync auto-apply, edit auto-apply, completions)
+- Refactor Phase 6 — Documentation (all flow docs, mermaid diagrams, README, SPEC.md)
 
 ## Architecture
 
-Apply pipeline sequence: load state → load `pauldot.toml` → resolve profile + extends → detect OS → generate zshrc → backup + symlink → reconcile tools → print summary.
+**Apply pipeline (target state after refactor):** load state → load `pauldot.toml` → resolve profile + extends → detect OS → concatenate source files → write `~/.zshrc` → reconcile dotfile symlinks → reconcile tools → print summary.
 
-Key modules:
+Key modules (current + planned):
 
 - `cli.py` — typer app, command definitions, subcommand groups
-- `config.py` — pydantic models, loading `pauldot.toml` + profiles
+- `config.py` — pydantic models, loading `pauldot.toml` + profiles + tools
 - `state.py` — `~/.config/pauldot/state.toml` read/write
 - `apply.py` — the reconciliation engine
 - `profiles.py` — profile resolution, `extends` chain
-- `tools.py` — tool check + install logic, OS-specific dispatch
-- `zshrc.py` — generation of `.zshrc.generated`, symlink + backup
+- `tools.py` — tool check + install + update logic, OS-specific dispatch, always-streaming subprocess
+- `zshrc.py` — content engine: concatenates source files, writes `~/.zshrc` as a plain file
+- `dotfiles.py` — *(new)* dotfile symlink reconciliation
+- `display.py` — *(new)* shared rich display helpers (extracted from `cli.py`)
+- `absorb.py` — diff `~/.zshrc` vs generated content, append extra lines to source files
 - `git.py` — subprocess wrappers for `git`
 - `gh.py` — subprocess wrappers for `gh`, auth detection
 - `shell.py` — subprocess wrappers, OS detection (`macos` | `linux`)

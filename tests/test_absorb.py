@@ -58,7 +58,7 @@ def test_absorbs_appended_lines(fake_home_with_state, repo, profile):
     assert '[ -s "$NVM_DIR/nvm.sh" ] && \\. "$NVM_DIR/nvm.sh"' in result.lines
 
     base_content = (repo / "files" / "zshrc.base").read_text()
-    assert 'export NVM_DIR' in base_content
+    assert "export NVM_DIR" in base_content
     assert "# Absorbed by pauldot absorb" in base_content
 
 
@@ -82,7 +82,7 @@ def test_absorbs_into_custom_target(fake_home_with_state, repo, profile):
     result = absorb.absorb(fake_home_with_state, repo, target_name="zshrc.personal")
 
     assert result.target == repo / "files" / "zshrc.personal"
-    assert 'export PYENV_ROOT' in (repo / "files" / "zshrc.personal").read_text()
+    assert "export PYENV_ROOT" in (repo / "files" / "zshrc.personal").read_text()
 
 
 def test_raises_if_generated_missing(fake_home_with_state, repo):

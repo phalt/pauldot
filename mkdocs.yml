@@ -1,0 +1,37 @@
+site_name: pauldot
+site_description: Personal system manager — dotfiles, profiles, and tool installations across machines.
+site_url: https://phalt.github.io/pauldot
+repo_url: https://github.com/phalt/pauldot
+repo_name: phalt/pauldot
+
+theme:
+  name: material
+  palette:
+    scheme: slate
+    primary: indigo
+    accent: indigo
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+
+nav:
+  - Overview: index.md
+  - Flows:
+    - Bootstrap a new machine: flows/bootstrap.md
+    - Migrate an existing machine: flows/migrate.md
+    - Alias lifecycle: flows/aliases.md
+    - Tool lifecycle: flows/tools.md
+
+markdown_extensions:
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - admonition
+  - pymdownx.details
+  - attr_list

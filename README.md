@@ -22,24 +22,30 @@ uv tool install pauldot
 # 1. Create your dotfiles repo on GitHub
 gh repo create <you>/dotfiles --private --clone
 
-# 2. Scaffold the structure (optionally porting your existing ~/.zshrc)
-pauldot init --scaffold ./dotfiles --port-existing-zshrc
+# 2. Scaffold the structure
+pauldot init --scaffold ./dotfiles
 
-# 3. Edit pauldot.toml and bootstrap.sh, then push
+# 3. If you have an existing ~/.zshrc, migrate it in
+pauldot migrate
+
+# 4. Edit pauldot.toml and bootstrap.sh, then push
 cd dotfiles && git add . && git commit -m "init" && git push
 
-# 4. On any new machine
+# 5. On any new machine
 curl -sSL https://raw.githubusercontent.com/<you>/dotfiles/main/bootstrap.sh | sh
 ```
 
-`--port-existing-zshrc` is optional but recommended on first setup — it reads your current `~/.zshrc`, moves `alias` lines into `files/aliases.zsh`, and writes everything else into `files/zshrc.base`.
-
 Run `pauldot help fork` for the full walkthrough.
 
-## Quick start (existing dotfiles repo)
+## Quick start (existing dotfiles repo, new machine)
 
 ```sh
 pauldot init git@github.com:<you>/dotfiles
+
+# If this machine already has a ~/.zshrc, bring it under management first
+pauldot migrate --dry-run   # preview what will be absorbed
+pauldot migrate             # write aliases → aliases.zsh, rest → zshrc.base
+
 pauldot apply
 ```
 
@@ -48,12 +54,14 @@ If your repo is private, set up GitHub CLI first — `pauldot help gh` walks you
 ## Commands
 
 ```
-pauldot init [<repo-url>]                            Clone your dotfiles repo and configure this machine
-pauldot init --scaffold <path>                       Generate a starter dotfiles repo structure
-pauldot init --scaffold <path> --port-existing-zshrc  Also port aliases and config from ~/.zshrc into the scaffold
+pauldot init [<repo-url>]        Clone your dotfiles repo and configure this machine
+pauldot init --scaffold <path>   Generate a starter dotfiles repo structure
 pauldot apply                    Reconcile current profile (zshrc + tools)
 pauldot status                   Dry-run apply — show what would change
 pauldot doctor                   Health check
+
+pauldot migrate                  Migrate an existing ~/.zshrc into your dotfiles repo
+pauldot migrate --dry-run        Preview what would be migrated without writing anything
 
 pauldot profile show             Show the active profile
 pauldot profile list             List available profiles

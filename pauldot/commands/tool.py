@@ -136,7 +136,7 @@ def tool_add() -> None:
         if cfg.git.auto_commit:
             git.commit(repo_path, f"pauldot: add tool {name}")
             console.print("✓ Committed to dotfiles repo.")
-    except (FileNotFoundError, RuntimeError):
+    except FileNotFoundError, RuntimeError:
         pass  # auto-commit is best-effort
 
 
@@ -159,5 +159,5 @@ def tool_remove(name: str) -> None:
         if cfg.git.auto_commit:
             git.commit(repo_path, f"pauldot: remove tool {name}")
             console.print("✓ Committed to dotfiles repo.")
-    except (FileNotFoundError, RuntimeError):
+    except FileNotFoundError, RuntimeError:
         pass  # auto-commit is best-effort

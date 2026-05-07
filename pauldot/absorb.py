@@ -30,9 +30,7 @@ def absorb(
     generated_path = repo_path / zshrc.GENERATED_ZSHRC_REL
 
     if not generated_path.exists():
-        raise FileNotFoundError(
-            f"{generated_path} not found. Run `pauldot apply` first."
-        )
+        raise FileNotFoundError(f"{generated_path} not found. Run `pauldot apply` first.")
 
     current_state = state.load_state()
     profile = profiles.resolve(repo_path, current_state.active_profile)
@@ -64,7 +62,7 @@ def _extra_lines(actual: str, expected: str) -> list[str]:
     actual_stripped = actual.rstrip()
 
     if actual_stripped.startswith(expected_stripped):
-        remainder = actual_stripped[len(expected_stripped):]
+        remainder = actual_stripped[len(expected_stripped) :]
         return [line for line in remainder.splitlines() if line.strip()]
 
     # Fallback: set diff preserving order.

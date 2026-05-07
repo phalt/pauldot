@@ -19,6 +19,7 @@ pauldot = "pauldot.cli:app"
 
 [dependency-groups]
 dev = ["pytest>=8.0", "ruff>=0.9"]
+docs = ["mkdocs-material>=9.5"]
 
 [build-system]
 requires = ["hatchling"]
