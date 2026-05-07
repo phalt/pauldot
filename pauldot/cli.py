@@ -42,9 +42,9 @@ console = rich_console.Console()
 
 _ZSHRC_ACTION_LABELS: dict[str, rich_text.Text] = {
     "created": rich_text.Text("✓ created", style="green"),
+    "written": rich_text.Text("✓ updated", style="green"),
     "backup_replaced": rich_text.Text("✓ replaced", style="green"),
-    "replaced": rich_text.Text("✓ replaced", style="green"),
-    "no_op": rich_text.Text("✓ already linked", style="dim"),
+    "no_op": rich_text.Text("✓ up to date", style="dim"),
 }
 
 
@@ -58,7 +58,6 @@ def _print_zshrc_result(result: zshrc.ZshrcResult, dry_run: bool) -> None:
         action = action + rich_text.Text(" (dry run)", style="dim")
 
     t.add_row(rich_text.Text("~/.zshrc", style="bold"), action)
-    t.add_row(rich_text.Text("  → target", style="dim"), rich_text.Text(str(result.target)))
     if result.backup:
         t.add_row(rich_text.Text("  → backup", style="dim"), rich_text.Text(str(result.backup)))
 
@@ -255,15 +254,15 @@ def doctor() -> None:
         fail("pauldot.toml", "repo missing or not a pauldot dotfiles repo")
         cfg = None
 
-    # 4. ~/.zshrc symlink
+    # 4. ~/.zshrc
     zshrc_link = home / ".zshrc"
-    generated = repo_path / zshrc.GENERATED_ZSHRC_REL
-    if zshrc_link.is_symlink() and zshrc_link.resolve() == generated.resolve():
-        ok("~/.zshrc", "symlinked to generated file")
-    elif zshrc_link.is_symlink():
-        warn("~/.zshrc", f"symlinks to {zshrc_link.resolve()}, not the generated file — run `pauldot apply`")
+    if zshrc_link.is_symlink():
+        warn("~/.zshrc", "is a symlink (old pauldot model) — run `pauldot apply` to migrate")
     elif zshrc_link.exists():
-        warn("~/.zshrc", "regular file, not a symlink — run `pauldot apply` to replace it")
+        if zshrc_link.read_text().startswith(zshrc.PAULDOT_HEADER):
+            ok("~/.zshrc", "managed by pauldot")
+        else:
+            warn("~/.zshrc", "exists but not managed by pauldot — run `pauldot apply`")
     else:
         warn("~/.zshrc", "not found — run `pauldot apply`")
 

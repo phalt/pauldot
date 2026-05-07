@@ -1,4 +1,4 @@
-"""The reconciliation engine: load state → resolve profile → generate zshrc → symlink → reconcile tools."""
+"""The reconciliation engine: load state → resolve profile → write ~/.zshrc → reconcile tools."""
 
 import pathlib
 
@@ -15,10 +15,10 @@ class ApplyResult(pydantic.BaseModel):
 def run(home: pathlib.Path, dry_run: bool = False, verbose: bool = False) -> ApplyResult:
     """Run the apply pipeline.
 
-    Loads state and config, resolves the active profile, generates .zshrc.generated,
-    symlinks ~/.zshrc, and reconciles tools. In dry_run mode only the zshrc step runs
-    (idempotent read + describe); tools are skipped.
-    When verbose=True, subprocess output from tool installs is captured in each ToolResult.
+    Loads state and config, resolves the active profile, writes ~/.zshrc as a plain file,
+    and reconciles tools. In dry_run mode only the zshrc step runs (idempotent read + describe);
+    tools are skipped. When verbose=True, subprocess output from tool installs is captured
+    in each ToolResult.
     """
     current_state = state.load_state()
     repo_path = home / ".pauldot"
@@ -27,9 +27,7 @@ def run(home: pathlib.Path, dry_run: bool = False, verbose: bool = False) -> App
     profile = profiles.resolve(repo_path, current_state.active_profile)
     os_name = shell.detect_os()
 
-    # generate_zshrc is always called — it's idempotent and non-destructive.
-    target = zshrc.generate_zshrc(repo_path, profile)
-    zshrc_result = zshrc.apply_zshrc(home, target, dry_run=dry_run)
+    zshrc_result = zshrc.apply_zshrc(home, repo_path, profile, dry_run=dry_run)
 
     tool_results: list[tools.ToolResult] = []
     if not dry_run:

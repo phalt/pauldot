@@ -1,4 +1,4 @@
-"""Absorbs external modifications to .zshrc.generated back into source files."""
+"""Absorbs external modifications to ~/.zshrc back into source files."""
 
 import pathlib
 
@@ -19,23 +19,25 @@ def absorb(
     target_name: str = "zshrc.base",
     dry_run: bool = False,
 ) -> AbsorbResult:
-    """Diff .zshrc.generated against what pauldot would generate and absorb the extra lines.
+    """Diff ~/.zshrc against what pauldot would generate and absorb the extra lines.
 
     Extra lines (written by external tools) are appended to target_name inside files/.
     In dry_run mode nothing is written; the result still describes what would be absorbed.
 
-    Raises FileNotFoundError if .zshrc.generated does not exist.
-    Raises ValueError if the active profile cannot be resolved.
+    Raises FileNotFoundError if ~/.zshrc does not exist.
+    Raises ValueError if ~/.zshrc is not managed by pauldot.
     """
-    generated_path = repo_path / zshrc.GENERATED_ZSHRC_REL
+    zshrc_path = home / ".zshrc"
 
-    if not generated_path.exists():
-        raise FileNotFoundError(f"{generated_path} not found. Run `pauldot apply` first.")
+    if not zshrc_path.exists():
+        raise FileNotFoundError("~/.zshrc not found. Run `pauldot apply` first.")
+    if not zshrc_path.read_text().startswith(zshrc.PAULDOT_HEADER):
+        raise ValueError("~/.zshrc is not managed by pauldot. Run `pauldot apply` first.")
 
     current_state = state.load_state()
     profile = profiles.resolve(repo_path, current_state.active_profile)
 
-    actual = generated_path.read_text()
+    actual = zshrc_path.read_text()
     expected = zshrc.expected_content(repo_path, profile)
     extra = _extra_lines(actual, expected)
 
@@ -52,19 +54,6 @@ def absorb(
 
 
 def _extra_lines(actual: str, expected: str) -> list[str]:
-    """Return lines present in actual but not in expected, preserving order.
-
-    Tries a prefix match first (the common case: tools append to the end).
-    Falls back to a set-diff for cases where the generated file was modified mid-file.
-    Blank lines are excluded from the result.
-    """
-    expected_stripped = expected.rstrip()
-    actual_stripped = actual.rstrip()
-
-    if actual_stripped.startswith(expected_stripped):
-        remainder = actual_stripped[len(expected_stripped) :]
-        return [line for line in remainder.splitlines() if line.strip()]
-
-    # Fallback: set diff preserving order.
+    """Return lines present in actual but not in expected, preserving order, skipping blanks."""
     expected_lines = set(expected.splitlines())
     return [line for line in actual.splitlines() if line not in expected_lines and line.strip()]

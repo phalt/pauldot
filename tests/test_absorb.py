@@ -26,22 +26,19 @@ def profile(repo) -> profiles.ResolvedProfile:
 
 @pytest.fixture
 def fake_home_with_state(fake_home, repo) -> pathlib.Path:
-    """fake_home with state.toml written, repo symlinked as .pauldot."""
     state.save_state(state.State(active_profile="personal", repo_url="git@github.com:test/dotfiles"))
     (fake_home / ".pauldot").symlink_to(repo)
     return fake_home
 
 
-def _write_generated(repo: pathlib.Path, profile: profiles.ResolvedProfile, extra: str = "") -> pathlib.Path:
-    """Write a .zshrc.generated file, optionally appending extra lines."""
-    path = repo / zshrc.GENERATED_ZSHRC_REL
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(zshrc.expected_content(repo, profile) + extra)
-    return path
+def _write_zshrc(home: pathlib.Path, repo: pathlib.Path, profile: profiles.ResolvedProfile, extra: str = "") -> None:
+    """Write a pauldot-owned ~/.zshrc, optionally appending extra lines."""
+    content = zshrc.expected_content(repo, profile) + extra
+    (home / ".zshrc").write_text(content)
 
 
 def test_nothing_to_absorb(fake_home_with_state, repo, profile):
-    _write_generated(repo, profile)
+    _write_zshrc(fake_home_with_state, repo, profile)
     result = absorb.absorb(fake_home_with_state, repo)
     assert result.lines == []
     assert result.target is None
@@ -49,7 +46,7 @@ def test_nothing_to_absorb(fake_home_with_state, repo, profile):
 
 def test_absorbs_appended_lines(fake_home_with_state, repo, profile):
     extra = '\nexport NVM_DIR="$HOME/.nvm"\n[ -s "$NVM_DIR/nvm.sh" ] && \\. "$NVM_DIR/nvm.sh"\n'
-    _write_generated(repo, profile, extra)
+    _write_zshrc(fake_home_with_state, repo, profile, extra)
 
     result = absorb.absorb(fake_home_with_state, repo)
 
@@ -64,7 +61,7 @@ def test_absorbs_appended_lines(fake_home_with_state, repo, profile):
 
 def test_dry_run_does_not_write(fake_home_with_state, repo, profile):
     extra = '\nexport NVM_DIR="$HOME/.nvm"\n'
-    _write_generated(repo, profile, extra)
+    _write_zshrc(fake_home_with_state, repo, profile, extra)
     original = (repo / "files" / "zshrc.base").read_text()
 
     result = absorb.absorb(fake_home_with_state, repo, dry_run=True)
@@ -77,7 +74,7 @@ def test_dry_run_does_not_write(fake_home_with_state, repo, profile):
 
 def test_absorbs_into_custom_target(fake_home_with_state, repo, profile):
     extra = '\nexport PYENV_ROOT="$HOME/.pyenv"\n'
-    _write_generated(repo, profile, extra)
+    _write_zshrc(fake_home_with_state, repo, profile, extra)
 
     result = absorb.absorb(fake_home_with_state, repo, target_name="zshrc.personal")
 
@@ -85,27 +82,33 @@ def test_absorbs_into_custom_target(fake_home_with_state, repo, profile):
     assert "export PYENV_ROOT" in (repo / "files" / "zshrc.personal").read_text()
 
 
-def test_raises_if_generated_missing(fake_home_with_state, repo):
+def test_raises_if_zshrc_missing(fake_home_with_state, repo):
     with pytest.raises(FileNotFoundError, match="pauldot apply"):
         absorb.absorb(fake_home_with_state, repo)
 
 
-def test_extra_lines_prefix_match():
-    expected = "line1\nline2\nline3\n"
-    actual = "line1\nline2\nline3\nextra1\nextra2\n"
+def test_raises_if_not_pauldot_owned(fake_home_with_state, repo):
+    (fake_home_with_state / ".zshrc").write_text("# someone else's zshrc\n")
+    with pytest.raises(ValueError, match="pauldot apply"):
+        absorb.absorb(fake_home_with_state, repo)
+
+
+def test_extra_lines_excludes_blank_lines():
+    expected = "line1\nline2\n"
+    actual = "line1\nline2\n\n   \nextra\n"
     result = absorb._extra_lines(actual, expected)
-    assert result == ["extra1", "extra2"]
+    assert result == ["extra"]
 
 
-def test_extra_lines_fallback_set_diff():
+def test_extra_lines_preserves_order():
+    expected = "line1\nline2\n"
+    actual = "line1\nline2\nextra_a\nextra_b\n"
+    result = absorb._extra_lines(actual, expected)
+    assert result == ["extra_a", "extra_b"]
+
+
+def test_extra_lines_mid_file_insertion():
     expected = "line1\nline2\n"
     actual = "line1\nINSERTED\nline2\n"
     result = absorb._extra_lines(actual, expected)
     assert result == ["INSERTED"]
-
-
-def test_extra_lines_blank_lines_excluded():
-    expected = "line1\n"
-    actual = "line1\n\n   \nextra\n"
-    result = absorb._extra_lines(actual, expected)
-    assert result == ["extra"]

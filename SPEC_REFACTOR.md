@@ -1683,17 +1683,17 @@ After completing each step within a phase, check it off (change `- [ ]` to `- [x
 
 The highest-risk change. Do this first so everything else builds on the correct foundation.
 
-- [ ] Remove `GENERATED_ZSHRC_REL` constant and `generate_zshrc()` from `zshrc.py`
-- [ ] Add `PAULDOT_HEADER` constant to `zshrc.py`
-- [ ] Rewrite `expected_content()` to concatenate source file content (not `source` lines)
-- [ ] Rewrite `apply_zshrc()`: write plain file, detect ownership via header, handle symlink migration case
-- [ ] Update `ZshrcResult.action` literal: add `"written"`, remove `"replaced"`
-- [ ] Update `apply.py`: remove `target` path; call `apply_zshrc(home, repo_path, profile, dry_run)`
-- [ ] Update `absorb.py`: diff `~/.zshrc` vs `expected_content()`; simplify `_extra_lines()`
-- [ ] Update `cli.py`: update `_ZSHRC_ACTION_LABELS` for new action values; fix doctor zshrc check
-- [ ] Update `tests/test_apply.py`: assert plain file, assert content, assert idempotency
-- [ ] Update `tests/test_absorb.py`: write to `~/.zshrc` directly
-- [ ] Update `tests/test_zshrc.py`: all new action cases, migration case
+- [x] Remove `GENERATED_ZSHRC_REL` constant and `generate_zshrc()` from `zshrc.py`
+- [x] Add `PAULDOT_HEADER` constant to `zshrc.py`
+- [x] Rewrite `expected_content()` to concatenate source file content (not `source` lines)
+- [x] Rewrite `apply_zshrc()`: write plain file, detect ownership via header, handle symlink migration case
+- [x] Update `ZshrcResult.action` literal: add `"written"`, remove `"replaced"`
+- [x] Update `apply.py`: remove `target` path; call `apply_zshrc(home, repo_path, profile, dry_run)`
+- [x] Update `absorb.py`: diff `~/.zshrc` vs `expected_content()`; simplify `_extra_lines()`
+- [x] Update `cli.py`: update `_ZSHRC_ACTION_LABELS` for new action values; fix doctor zshrc check
+- [x] Update `tests/test_apply.py`: assert plain file, assert content, assert idempotency
+- [x] Update `tests/test_absorb.py`: write to `~/.zshrc` directly
+- [x] Update `tests/test_zshrc.py`: all new action cases, migration case
 
 ---
 

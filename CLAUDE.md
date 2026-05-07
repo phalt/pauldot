@@ -65,7 +65,7 @@ uv run pauldot status          # dry-run apply, no side effects
 
 ## Implementation Progress
 
-Current phase: **Refactor Phase 1 — Zshrc Engine Rewrite** (not yet started)
+Current phase: **Refactor Phase 2 — Profile System Fixes** (not yet started)
 
 The original build phases (0.1–0.7) are complete. All future work follows `SPEC_REFACTOR.md`. After completing each step within a phase, check it off there (change `- [ ]` to `- [x]`). Update the current phase note here when a phase completes.
 
@@ -79,8 +79,8 @@ The original build phases (0.1–0.7) are complete. All future work follows `SPE
 - Phase 0.7 — `pauldot absorb` ✓
 
 **Refactor phases (see `SPEC_REFACTOR.md` section 18 for full checklists):**
-- Refactor Phase 1 — Zshrc engine rewrite: plain-file output, drop symlink + generated-file model ← **current**
-- Refactor Phase 2 — Profile system fixes: env bug, auto-apply on alias add + profile set, display.py
+- Refactor Phase 1 — Zshrc engine rewrite: plain-file output, drop symlink + generated-file model ✓
+- Refactor Phase 2 — Profile system fixes: env bug, auto-apply on alias add + profile set, display.py ← **current**
 - Refactor Phase 3 — Tool streaming and update command
 - Refactor Phase 4 — Dotfile tracking (`pauldot track`, per-profile `dotfiles` list)
 - Refactor Phase 5 — Workflow improvements (`init --apply`, sync auto-apply, edit auto-apply, completions)

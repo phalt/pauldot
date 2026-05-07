@@ -30,7 +30,7 @@ def test_doctor_uninitialised(fake_home, monkeypatch):
     assert "pauldot init" in result.output
 
 
-def test_doctor_initialised_no_symlink(fake_home, repo, monkeypatch):
+def test_doctor_initialised_no_zshrc(fake_home, repo, monkeypatch):
     monkeypatch.setenv("HOME", str(fake_home))
     state.save_state(state.State(active_profile="base", repo_url="git@test"))
     result = runner.invoke(cli.app, ["doctor"])
@@ -38,15 +38,22 @@ def test_doctor_initialised_no_symlink(fake_home, repo, monkeypatch):
     assert "pauldot apply" in result.output
 
 
-def test_doctor_symlinked(fake_home, repo, monkeypatch):
+def test_doctor_pauldot_owned_zshrc(fake_home, repo, monkeypatch):
     monkeypatch.setenv("HOME", str(fake_home))
     state.save_state(state.State(active_profile="base", repo_url="git@test"))
-
-    generated = repo / zshrc.GENERATED_ZSHRC_REL
-    generated.parent.mkdir(parents=True, exist_ok=True)
-    generated.write_text("# generated\n")
-    (fake_home / ".zshrc").symlink_to(generated)
-
+    (fake_home / ".zshrc").write_text(zshrc.PAULDOT_HEADER + "\n# content\n")
     result = runner.invoke(cli.app, ["doctor"])
     assert result.exit_code == 0
-    assert "symlinked" in result.output
+    assert "managed by pauldot" in result.output
+
+
+def test_doctor_symlink_warns_to_migrate(fake_home, repo, monkeypatch):
+    monkeypatch.setenv("HOME", str(fake_home))
+    state.save_state(state.State(active_profile="base", repo_url="git@test"))
+    target = fake_home / "some_generated_file"
+    target.write_text("# old generated\n")
+    (fake_home / ".zshrc").symlink_to(target)
+    result = runner.invoke(cli.app, ["doctor"])
+    assert result.exit_code == 0
+    assert "symlink" in result.output
+    assert "pauldot apply" in result.output
