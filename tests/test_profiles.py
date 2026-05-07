@@ -4,7 +4,7 @@ import pathlib
 
 import pytest
 
-from pauldot import profiles
+from pauldot import profiles, zshrc
 
 
 @pytest.fixture
@@ -74,3 +74,26 @@ def test_resolve_extends_parent_no_zshrc(repo):
 def test_resolve_missing_profile(repo):
     with pytest.raises(FileNotFoundError, match="pauldot profile list"):
         profiles.resolve(repo, "nonexistent")
+
+
+def test_env_vars_exported_in_generated_content(repo):
+    """Env vars from profile.env appear as export lines in ~/.zshrc content."""
+    (repo / "files" / "zshrc.base").write_text("# base\n")
+    (repo / "profiles" / "personal.toml").write_text(
+        'zshrc = "files/zshrc.base"\n\n[env]\nEDITOR = "zed --wait"\nWORK_MODE = "true"\n'
+    )
+    profile = profiles.resolve(repo, "personal")
+    content = zshrc.expected_content(repo, profile)
+    assert 'export EDITOR="zed --wait"' in content
+    assert 'export WORK_MODE="true"' in content
+
+
+def test_env_vars_child_overrides_parent_in_content(repo):
+    """Child profile env wins when parent and child both set the same key."""
+    (repo / "files" / "zshrc.base").write_text("# base\n")
+    (repo / "profiles" / "base.toml").write_text('zshrc = "files/zshrc.base"\n\n[env]\nEDITOR = "vim"\n')
+    (repo / "profiles" / "work.toml").write_text('extends = "base"\n\n[env]\nEDITOR = "zed --wait"\n')
+    profile = profiles.resolve(repo, "work")
+    content = zshrc.expected_content(repo, profile)
+    assert 'export EDITOR="zed --wait"' in content
+    assert 'export EDITOR="vim"' not in content

@@ -80,8 +80,8 @@ The original build phases (0.1–0.7) are complete. All future work follows `SPE
 
 **Refactor phases (see `SPEC_REFACTOR.md` section 18 for full checklists):**
 - Refactor Phase 1 — Zshrc engine rewrite: plain-file output, drop symlink + generated-file model ✓
-- Refactor Phase 2 — Profile system fixes: env bug, auto-apply on alias add + profile set, display.py ← **current**
-- Refactor Phase 3 — Tool streaming and update command
+- Refactor Phase 2 — Profile system fixes: env bug, auto-apply on alias add + profile set, display.py ✓
+- Refactor Phase 3 — Tool streaming and update command ← **current**
 - Refactor Phase 4 — Dotfile tracking (`pauldot track`, per-profile `dotfiles` list)
 - Refactor Phase 5 — Workflow improvements (`init --apply`, sync auto-apply, edit auto-apply, completions)
 - Refactor Phase 6 — Documentation (all flow docs, mermaid diagrams, README, SPEC.md)

@@ -62,15 +62,45 @@ def test_expected_content_omits_aliases_if_missing(repo, base_profile):
     assert "alias" not in content
 
 
-def test_expected_content_omits_env_if_missing(repo, base_profile):
+def test_expected_content_omits_env_section_if_no_env(repo, base_profile):
     content = zshrc.expected_content(repo, base_profile)
-    assert ".env.generated" not in content
+    assert "# Environment — set by active profile" not in content
 
 
-def test_expected_content_includes_env_generated_if_present(repo, base_profile):
-    (repo / "files" / ".env.generated").write_text("export FOO=bar\n")
+def test_expected_content_exports_env_vars(repo):
+    profile = profiles.ResolvedProfile(
+        name="work",
+        zshrc_files=[repo / "files" / "zshrc.base"],
+        tools=[],
+        env={"EDITOR": "zed --wait", "WORK_MODE": "true"},
+    )
+    content = zshrc.expected_content(repo, profile)
+    assert 'export EDITOR="zed --wait"' in content
+    assert 'export WORK_MODE="true"' in content
+
+
+def test_expected_content_exports_env_vars_sorted(repo):
+    profile = profiles.ResolvedProfile(
+        name="base",
+        zshrc_files=[],
+        tools=[],
+        env={"ZZZ": "last", "AAA": "first"},
+    )
+    content = zshrc.expected_content(repo, profile)
+    aaa_pos = content.index("AAA")
+    zzz_pos = content.index("ZZZ")
+    assert aaa_pos < zzz_pos
+
+
+def test_expected_content_includes_profile_aliases(repo, base_profile):
+    (repo / "files" / "aliases.base.zsh").write_text("alias pb='pauldot'\n")
     content = zshrc.expected_content(repo, base_profile)
-    assert "export FOO=bar" in content
+    assert "alias pb='pauldot'" in content
+
+
+def test_expected_content_omits_profile_aliases_if_missing(repo, base_profile):
+    content = zshrc.expected_content(repo, base_profile)
+    assert "aliases.base.zsh" not in content
 
 
 def test_expected_content_parent_before_child(repo):

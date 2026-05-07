@@ -1,4 +1,4 @@
-"""Tests for absorb.py — absorbing external zshrc modifications into source files."""
+"""Tests for absorb.py — absorbing external ~/.zshrc modifications into source files."""
 
 import pathlib
 

@@ -1,6 +1,12 @@
+# Base profile — inherited by all other profiles via `extends = "base"`.
+# Put config that applies on every machine here.
+
 zshrc = "files/zshrc.base"
 
 tools = []
+# List tools that should be installed everywhere, e.g.:
+# tools = ["git", "uv"]
 
 [env]
-EDITOR = "vim"
+# Environment variables exported in ~/.zshrc for this profile.
+# EDITOR = "vim"

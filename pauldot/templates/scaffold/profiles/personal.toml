@@ -1,7 +1,16 @@
+# Personal profile — extends base, adds personal-specific config.
 extends = "base"
 
 zshrc = "files/zshrc.personal"
 
 tools = []
+# List tools specific to this profile (in addition to base tools), e.g.:
+# tools = ["starship", "ripgrep"]
+
+dotfiles = []
+# Dotfiles to manage on machines using this profile, e.g.:
+# dotfiles = [".gitconfig", ".config/starship.toml"]
 
 [env]
+# Override or add env vars for this profile, e.g.:
+# EDITOR = "zed --wait"

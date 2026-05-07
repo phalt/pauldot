@@ -1701,16 +1701,16 @@ The highest-risk change. Do this first so everything else builds on the correct 
 
 Fixes two silent bugs and adds auto-apply consistency.
 
-- [ ] Fix `expected_content()` to export `profile.env` as `export KEY="value"` lines; remove `.env.generated` reference
-- [ ] Update `expected_content()` to include `files/aliases.<profile_name>.zsh` after shared aliases, if it exists
-- [ ] Add `display.py` with `print_zshrc_result()` and `print_dotfile_results()` extracted from `cli.py`
-- [ ] Update `commands/alias.py`: add `--profile` flag to `alias_add`; write to `files/aliases.<name>.zsh` when given; add auto-apply after `alias_add`; use `display.py`
-- [ ] Update `alias list` to show a `Source` column (shared vs profile-specific)
-- [ ] Update `commands/profile.py`: prompt to apply (or `--apply` flag) after `profile_set`
-- [ ] Update scaffold profile templates with explanatory comments and `dotfiles = []` key
-- [ ] Update scaffold `aliases.zsh` comment to mention `--profile` flag
-- [ ] Update `tests/test_profiles.py`: assert `env` dict appears as `export` lines in generated content
-- [ ] Update `tests/test_alias.py`: assert auto-apply triggers after `alias_add`; assert `--profile` flag writes to correct file; assert profile aliases appear in generated content
+- [x] Fix `expected_content()` to export `profile.env` as `export KEY="value"` lines; remove `.env.generated` reference
+- [x] Update `expected_content()` to include `files/aliases.<profile_name>.zsh` after shared aliases, if it exists
+- [x] Add `display.py` with `print_zshrc_result()` and `print_dotfile_results()` extracted from `cli.py`
+- [x] Update `commands/alias.py`: add `--profile` flag to `alias_add`; write to `files/aliases.<name>.zsh` when given; add auto-apply after `alias_add`; use `display.py`
+- [x] Update `alias list` to show a `Source` column (shared vs profile-specific)
+- [x] Update `commands/profile.py`: prompt to apply (or `--apply` flag) after `profile_set`
+- [x] Update scaffold profile templates with explanatory comments and `dotfiles = []` key
+- [x] Update scaffold `aliases.zsh` comment to mention `--profile` flag
+- [x] Update `tests/test_profiles.py`: assert `env` dict appears as `export` lines in generated content
+- [x] Update `tests/test_alias.py`: assert auto-apply triggers after `alias_add`; assert `--profile` flag writes to correct file; assert profile aliases appear in generated content
 
 ---
 

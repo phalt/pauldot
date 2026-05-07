@@ -35,9 +35,15 @@ def expected_content(repo_path: pathlib.Path, profile: profiles.ResolvedProfile)
         parts.append(aliases.read_text().rstrip())
         parts.append("")
 
-    env_generated = repo_path / "files" / ".env.generated"
-    if env_generated.exists():
-        parts.append(env_generated.read_text().rstrip())
+    profile_aliases = repo_path / "files" / f"aliases.{profile.name}.zsh"
+    if profile_aliases.exists():
+        parts.append(profile_aliases.read_text().rstrip())
+        parts.append("")
+
+    if profile.env:
+        parts.append("# Environment — set by active profile")
+        for key, value in sorted(profile.env.items()):
+            parts.append(f'export {key}="{value}"')
         parts.append("")
 
     return "\n".join(parts) + "\n"

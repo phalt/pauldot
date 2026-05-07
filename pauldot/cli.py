@@ -13,7 +13,7 @@ from rich import text as rich_text
 
 from pauldot import absorb as pauldot_absorb
 from pauldot import apply as pauldot_apply
-from pauldot import config, git, profiles, scaffold, state, zshrc
+from pauldot import config, display, git, profiles, scaffold, state, zshrc
 from pauldot import migrate as pauldot_migrate
 from pauldot.commands import alias as cmd_alias
 from pauldot.commands import help as cmd_help
@@ -33,39 +33,18 @@ personal system manager for bash aliases & tools"""
 
 app = typer.Typer(no_args_is_help=True, help=_BANNER)
 
-app.add_typer(cmd_alias.alias_app, name="alias", help="Manage shell aliases.")
-app.add_typer(cmd_profile.profile_app, name="profile", help="Manage your dotfiles profile.")
-app.add_typer(cmd_tool.tool_app, name="tool", help="Manage tools installed on the system.")
-app.add_typer(cmd_help.help_app, name="help", help="Show instructions for setting up and using Pauldot.")
+app.add_typer(cmd_alias.alias_app, name="alias", help="Manage shell aliases.", no_args_is_help=True)
+app.add_typer(cmd_profile.profile_app, name="profile", help="Manage your dotfiles profile.", no_args_is_help=True)
+app.add_typer(cmd_tool.tool_app, name="tool", help="Manage tools that can be installed.", no_args_is_help=True)
+app.add_typer(
+    cmd_help.help_app, name="help", help="Show instructions for setting up and using Pauldot.", no_args_is_help=True
+)
 
 console = rich_console.Console()
 
-_ZSHRC_ACTION_LABELS: dict[str, rich_text.Text] = {
-    "created": rich_text.Text("✓ created", style="green"),
-    "written": rich_text.Text("✓ updated", style="green"),
-    "backup_replaced": rich_text.Text("✓ replaced", style="green"),
-    "no_op": rich_text.Text("✓ up to date", style="dim"),
-}
-
-
-def _print_zshrc_result(result: zshrc.ZshrcResult, dry_run: bool) -> None:
-    t = rich_table.Table(show_header=False, box=None, padding=(0, 2))
-    t.add_column(no_wrap=True)
-    t.add_column(no_wrap=True)
-
-    action = _ZSHRC_ACTION_LABELS[result.action]
-    if dry_run:
-        action = action + rich_text.Text(" (dry run)", style="dim")
-
-    t.add_row(rich_text.Text("~/.zshrc", style="bold"), action)
-    if result.backup:
-        t.add_row(rich_text.Text("  → backup", style="dim"), rich_text.Text(str(result.backup)))
-
-    console.print(t)
-
 
 def _print_apply_result(result: pauldot_apply.ApplyResult, dry_run: bool) -> None:
-    _print_zshrc_result(result.zshrc, dry_run)
+    display.print_zshrc_result(result.zshrc, dry_run)
     if result.tools:
         cmd_tool.print_tool_results(result.tools)
 
