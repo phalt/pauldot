@@ -103,7 +103,7 @@ def alias_add(
         if cfg.git.auto_commit:
             git.commit(repo_path, f"pauldot: add alias {key}")
             console.print("✓ Committed to dotfiles repo.")
-    except (FileNotFoundError, RuntimeError):
+    except FileNotFoundError, RuntimeError:
         pass  # auto-commit is best-effort
 
     try:
@@ -146,7 +146,9 @@ def alias_remove(
             pass
 
         if not removed_shared and not removed_profile:
-            console.print(f"[red]Error:[/red] Alias '{key}' not found. Run `pauldot alias list` to see defined aliases.")
+            console.print(
+                f"[red]Error:[/red] Alias '{key}' not found. Run `pauldot alias list` to see defined aliases."
+            )
             raise typer.Exit(1)
 
         sources = []
@@ -162,7 +164,7 @@ def alias_remove(
         if cfg.git.auto_commit:
             git.commit(repo_path, f"pauldot: remove alias {key}")
             console.print("✓ Committed to dotfiles repo.")
-    except (FileNotFoundError, RuntimeError):
+    except FileNotFoundError, RuntimeError:
         pass  # auto-commit is best-effort
 
     try:

@@ -49,6 +49,14 @@ def _print_apply_result(result: pauldot_apply.ApplyResult, dry_run: bool) -> Non
         cmd_tool.print_tool_results(result.tools)
 
 
+def _gather_repo_url() -> str | None:
+    return typer.prompt("Dotfiles repo URL")
+
+
+def _gather_active_profile(default: str | None) -> str | None:
+    return typer.prompt("Active profile", default=default)
+
+
 @app.command()
 def init(
     repo_url: typing.Annotated[str | None, typer.Argument()] = None,
@@ -93,7 +101,11 @@ def init(
                 "…then re-run `pauldot init <repo-url>`."
             )
             raise typer.Exit(1)
-        repo_url = typer.prompt("Dotfiles repo URL")
+        repo_url = _gather_repo_url()
+
+    while repo_url is None:
+        console.print("No dotfiles repo configured.\n")
+        repo_url = _gather_repo_url()
 
     console.print(f"Cloning into {repo_path}…")
     try:
@@ -115,10 +127,10 @@ def init(
     console.print(f"Available profiles: {', '.join(available)}")
     console.print(f"Default: {default}\n")
 
-    active = typer.prompt("Set active profile", default=default)
-    if active not in available:
+    active = _gather_active_profile(default=default)
+    while active not in available:
         console.print(f"[red]Error:[/red] Profile '{active}' not found. Available: {', '.join(available)}")
-        raise typer.Exit(1)
+        active = _gather_active_profile(default=default)
 
     state.save_state(state.State(active_profile=active, repo_url=repo_url))
     console.print(f"Active profile: {active}")
@@ -300,8 +312,8 @@ def sync() -> None:
         console.print("  Nothing to push.")
 
 
-@app.command("absorb")
-def absorb_cmd(
+@app.command()
+def absorb(
     target: typing.Annotated[
         str,
         typer.Option("--target", help="Source file to absorb into (relative to files/)."),
@@ -345,8 +357,8 @@ def absorb_cmd(
         pass  # auto-commit is best-effort
 
 
-@app.command("migrate")
-def migrate_cmd(
+@app.command()
+def migrate(
     dry_run: typing.Annotated[
         bool, typer.Option("--dry-run", help="Show what would be migrated without writing anything.")
     ] = False,
