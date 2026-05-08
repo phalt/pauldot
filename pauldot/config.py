@@ -35,6 +35,7 @@ class ProfileConfig(pydantic.BaseModel):
     zshrc: str | None = None
     tools: list[str] = pydantic.Field(default_factory=list)
     env: dict[str, str] = pydantic.Field(default_factory=dict)
+    dotfiles: list[str] = pydantic.Field(default_factory=list)
 
 
 class ToolInstall(pydantic.BaseModel):
@@ -113,4 +114,18 @@ def add_tool_to_profile(repo_path: pathlib.Path, profile_name: str, tool_name: s
     if tool_name not in tools_list:
         tools_list.append(tool_name)
     data["tools"] = tools_list
+    path.write_bytes(tomli_w.dumps(data).encode())
+
+
+def add_dotfile_to_profile(repo_path: pathlib.Path, profile_name: str, home_rel: str) -> None:
+    """Append home_rel to the dotfiles list in profiles/<profile_name>.toml."""
+    path = repo_path / "profiles" / f"{profile_name}.toml"
+    if not path.exists():
+        raise FileNotFoundError(f"Profile '{profile_name}' not found at {path}.")
+    with path.open("rb") as f:
+        data = tomllib.load(f)
+    dotfiles_list: list[str] = data.get("dotfiles", [])
+    if home_rel not in dotfiles_list:
+        dotfiles_list.append(home_rel)
+    data["dotfiles"] = dotfiles_list
     path.write_bytes(tomli_w.dumps(data).encode())

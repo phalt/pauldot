@@ -27,6 +27,7 @@ def base_profile(repo) -> profiles.ResolvedProfile:
         zshrc_files=[repo / "files" / "zshrc.base"],
         tools=[],
         env={},
+        dotfiles=[],
     )
 
 
@@ -73,6 +74,7 @@ def test_expected_content_exports_env_vars(repo):
         zshrc_files=[repo / "files" / "zshrc.base"],
         tools=[],
         env={"EDITOR": "zed --wait", "WORK_MODE": "true"},
+        dotfiles=[],
     )
     content = zshrc.expected_content(repo, profile)
     assert 'export EDITOR="zed --wait"' in content
@@ -85,6 +87,7 @@ def test_expected_content_exports_env_vars_sorted(repo):
         zshrc_files=[],
         tools=[],
         env={"ZZZ": "last", "AAA": "first"},
+        dotfiles=[],
     )
     content = zshrc.expected_content(repo, profile)
     aaa_pos = content.index("AAA")
@@ -110,6 +113,7 @@ def test_expected_content_parent_before_child(repo):
         zshrc_files=[repo / "files" / "zshrc.base", repo / "files" / "zshrc.work"],
         tools=[],
         env={},
+        dotfiles=[],
     )
     content = zshrc.expected_content(repo, profile)
     base_pos = content.index("# base zshrc")

@@ -109,3 +109,41 @@ def test_apply_run_does_not_install_tool_not_in_profile(fake_home, repo, saved_s
     # base profile has no tools list — extra should not be installed
     result = apply.run(fake_home)
     assert all(r.name != "extra" for r in result.tools)
+
+
+# — dotfile results ———————————————————————————————————————————————————————————
+
+
+def test_apply_run_dotfiles_empty_when_no_profile_dotfiles(fake_home, repo, saved_state):
+    result = apply.run(fake_home)
+    assert result.dotfiles == []
+
+
+def test_apply_run_dotfiles_copies_missing_live(fake_home, repo, saved_state):
+    """apply bootstraps live dotfiles from repo when they don't exist on disk."""
+    (repo / "files" / "home").mkdir(parents=True)
+    (repo / "files" / "home" / ".gitconfig").write_text("[user]\n  name = Paul\n")
+    (repo / "profiles" / "base.toml").write_text('zshrc = "files/zshrc.base"\ndotfiles = [".gitconfig"]\n')
+    result = apply.run(fake_home)
+    assert len(result.dotfiles) == 1
+    assert result.dotfiles[0].action == "copied"
+    assert (fake_home / ".gitconfig").read_text() == "[user]\n  name = Paul\n"
+
+
+def test_apply_run_dotfiles_already_present(fake_home, repo, saved_state):
+    """apply reports already_present when live dotfile already exists."""
+    (repo / "files" / "home").mkdir(parents=True)
+    (repo / "files" / "home" / ".gitconfig").write_text("[user]\n  name = Paul\n")
+    (fake_home / ".gitconfig").write_text("[user]\n  name = Paul\n")
+    (repo / "profiles" / "base.toml").write_text('zshrc = "files/zshrc.base"\ndotfiles = [".gitconfig"]\n')
+    result = apply.run(fake_home)
+    assert result.dotfiles[0].action == "already_present"
+
+
+def test_apply_run_dotfiles_dry_run_does_not_copy(fake_home, repo, saved_state):
+    (repo / "files" / "home").mkdir(parents=True)
+    (repo / "files" / "home" / ".gitconfig").write_text("[user]\n  name = Paul\n")
+    (repo / "profiles" / "base.toml").write_text('zshrc = "files/zshrc.base"\ndotfiles = [".gitconfig"]\n')
+    result = apply.run(fake_home, dry_run=True)
+    assert result.dotfiles[0].action == "copied"
+    assert not (fake_home / ".gitconfig").exists()

@@ -441,170 +441,6 @@ Comments are included — if a tool appended a comment to `~/.zshrc`, it gets ab
 
 ---
 
-## 5. Changes: edit auto-apply
-
-Currently `pauldot edit <target>` opens a file in `$EDITOR` and exits. The user must separately run `pauldot apply`.
-
-In the new model, `pauldot apply` is always required after any source file edit (not optional as before). To reduce friction, the `edit` command should apply automatically after the editor exits for the targets that affect `~/.zshrc` output.
-
-### 5.1 Which targets trigger auto-apply
-
-| `pauldot edit` target | Affects `~/.zshrc` output? | Auto-apply |
-|---|---|---|
-| `zshrc` | yes (content of zshrc file changes) | yes |
-| `profile` | yes (tools list, zshrc selection, env may change) | yes |
-| `tools` | no (tool definitions don't affect zshrc) | no |
-| `pauldot` | no (pauldot.toml doesn't affect zshrc content) | no |
-
-### 5.2 Implementation in cli.py
-
-```python
-if target in ("zshrc", "profile"):
-    subprocess.run([editor, str(path)])
-    # Apply after edit — source content changed.
-    try:
-        result = pauldot_apply.run(pathlib.Path.home())
-        _print_apply_result(result, dry_run=False)
-    except (FileNotFoundError, RuntimeError) as e:
-        console.print(f"[yellow]⚠[/yellow] Apply failed after edit: {e}")
-else:
-    subprocess.run([editor, str(path)])
-```
-
-The apply failure is a warning, not a hard error — the user may have made an intentional partial edit.
-
----
-
-## 6. Changes: init
-
-### 6.1 Problem
-
-`pauldot init` clones the repo and saves state but does not apply. The user must remember to run `pauldot apply` as a second step. If they don't, their shell is not yet configured.
-
-`BOOTSTRAP_HELP` in `help_text.py` explicitly lists this as two separate steps (4. init, 5. apply). That should not be necessary.
-
-### 6.2 Change
-
-Add an `--apply` flag to `init`. At the end of a successful init, either:
-- Prompt: `"Apply now? [Y/n]"` (default yes), or
-- If `--apply` is passed: skip the prompt and apply immediately
-
-The single-command new-machine workflow becomes:
-```
-pauldot init --apply git@github.com:paulhallett/dotfiles
-```
-
-### 6.3 Implementation in cli.py
-
-```python
-@app.command()
-def init(
-    repo_url: ...,
-    scaffold_path: ...,
-    apply_after: typing.Annotated[
-        bool, typer.Option("--apply", help="Run apply immediately after init.")
-    ] = False,
-) -> None:
-```
-
-After `state.save_state(...)`:
-
-```python
-if apply_after or typer.confirm("Apply now?", default=True):
-    try:
-        result = pauldot_apply.run(home)
-        _print_apply_result(result, dry_run=False)
-    except (FileNotFoundError, RuntimeError) as e:
-        console.print(f"[red]Error during apply:[/red] {e}")
-        raise typer.Exit(1) from None
-else:
-    console.print("\nRun `pauldot apply` when ready.")
-```
-
-Remove the `"\nRun `pauldot apply` when ready."` line from the non-apply path — it's now printed only when the user declines.
-
-### 6.4 Update BOOTSTRAP_HELP
-
-Collapse steps 4 and 5 into:
-```
-4. Clone your dotfiles repo and apply:
-     pauldot init --apply git@github.com:<you>/dotfiles
-
-5. Open a new shell to pick up the new ~/.zshrc:
-     exec zsh
-```
-
----
-
-## 7. Changes: sync → apply after pull
-
-### 7.1 Problem
-
-`pauldot sync` pulls remote changes but leaves `~/.zshrc` stale. Changes pulled from another machine take no effect until the user separately runs `pauldot apply`. The tool gives no indication that apply is needed.
-
-### 7.2 Change
-
-After `git.pull_rebase(repo_path)`, check whether any commits were actually pulled. If yes, run apply automatically.
-
-### 7.3 New git helper: `head_sha(repo_path) → str`
-
-```python
-def head_sha(repo_path: pathlib.Path) -> str:
-    """Return the current HEAD commit SHA."""
-    result = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=repo_path, capture_output=True, text=True,
-    )
-    if result.returncode != 0:
-        return ""
-    return result.stdout.strip()
-```
-
-### 7.4 Updated sync command in cli.py
-
-```python
-before = git.head_sha(repo_path)
-output = git.pull_rebase(repo_path)
-after = git.head_sha(repo_path)
-
-if output:
-    console.print(output)
-console.print("✓ Pulled latest changes.")
-
-if before != after:
-    # New commits were pulled — regenerate ~/.zshrc.
-    console.print("  Changes detected — applying…")
-    try:
-        result = pauldot_apply.run(pathlib.Path.home())
-        _print_apply_result(result, dry_run=False)
-    except (FileNotFoundError, RuntimeError) as e:
-        console.print(f"[yellow]⚠[/yellow] Apply failed after pull: {e}")
-```
-
----
-
-## 8. Changes: shell completions
-
-This requires zero new code. Typer already generates completions; the only gap is that no one tells the user to install them.
-
-### 8.1 Update BOOTSTRAP_HELP in help_text.py
-
-Add after the install step:
-```
-2. Install pauldot:
-     uv tool install pauldot
-
-   Enable tab completion (zsh):
-     pauldot --install-completion
-     exec zsh
-```
-
-### 8.2 Update scaffold's bootstrap.sh and README
-
-Add `pauldot --install-completion` to the scaffold's bootstrap script, after the `pauldot init` step.
-
----
-
 ## 9. What Stays the Same
 
 These are not touched in this refactor:
@@ -1738,30 +1574,23 @@ Independent of everything above. Can be done in parallel if needed, but do after
 
 New feature. Depends on Phase 1 (apply pipeline is stable) and Phase 2 (profiles have `dotfiles` field).
 
-- [ ] Add `dotfiles: list[str]` to `ProfileConfig` in `config.py`; add `add_dotfile_to_profile()` helper
-- [ ] Update `ResolvedProfile` in `profiles.py`: add `dotfiles` field; merge from parent in `resolve()`
-- [ ] Create `pauldot/dotfiles.py`: `DotfileStatus`, `DotfileApplyResult`, `DotfileSyncResult`; `status()`, `apply_dotfiles()`, `sync_dotfiles()`, `repo_path_for()`
-- [ ] Update `apply.py`: call `apply_dotfiles()` (bootstrap live from repo if missing); add `dotfiles` to `ApplyResult`
-- [ ] Update `sync` command in `cli.py`: call `sync_dotfiles()` before git commit/push; print sync results
-- [ ] Add `track` command to `cli.py`: copy live → repo, add to profile TOML, commit
-- [ ] Extend `doctor` in `cli.py` to check dotfile presence and drift
-- [ ] Extend `_print_apply_result` in `cli.py` to show dotfile apply results
-- [ ] Add dotfile drift to `status` (dry-run) output via `dotfiles.status()`
-- [ ] Create `tests/test_dotfiles.py` with full coverage for all three operations
-- [ ] Update `tests/test_apply.py` for dotfile apply result assertions
+- [x] Add `dotfiles: list[str]` to `ProfileConfig` in `config.py`; add `add_dotfile_to_profile()` helper
+- [x] Update `ResolvedProfile` in `profiles.py`: add `dotfiles` field; merge from parent in `resolve()`
+- [x] Create `pauldot/dotfiles.py`: `DotfileStatus`, `DotfileApplyResult`, `DotfileSyncResult`; `status()`, `apply_dotfiles()`, `sync_dotfiles()`, `repo_path_for()`
+- [x] Update `apply.py`: call `apply_dotfiles()` (bootstrap live from repo if missing); add `dotfiles` to `ApplyResult`
+- [x] Update `sync` command in `cli.py`: call `sync_dotfiles()` before git commit/push; print sync results
+- [x] Add `track` command to `cli.py`: copy live → repo, add to profile TOML, commit
+- [x] Extend `doctor` in `cli.py` to check dotfile presence and drift
+- [x] Extend `_print_apply_result` in `cli.py` to show dotfile apply results
+- [x] Add dotfile drift to `status` (dry-run) output via `dotfiles.status()`
+- [x] Create `tests/test_dotfiles.py` with full coverage for all three operations
+- [x] Update `tests/test_apply.py` for dotfile apply result assertions
 
 ---
 
-### Phase 5 — Workflow Improvements *(sections 5, 6, 7, 8)*
+### ~~Phase 5 — Workflow Improvements~~ — skipped
 
-Quality-of-life. Each item is independent.
-
-- [ ] Add `--apply` flag and end-of-init prompt to `init` command in `cli.py`
-- [ ] Add `head_sha()` to `git.py`; add auto-apply after pull in `sync` command
-- [ ] Add auto-apply after `edit zshrc` and `edit profile` in `cli.py`
-- [ ] Add `--install-completion` step to `BOOTSTRAP_HELP` in `help_text.py`
-- [ ] Update scaffold `bootstrap.sh`: collapse init+apply; add completion step
-- [ ] Update `tests/test_git.py`: add `head_sha()` tests
+Dropped. The items in this phase (`init --apply`, sync auto-apply, edit auto-apply, completions) were superseded or made incompatible by the sync state machine introduced in Phase 4. The sync auto-apply item in particular conflicts directly with the `blocked_by_state` flow: auto-applying after a pull could silently overwrite remote changes that the user needs to review. The remaining items are standalone QoL additions that can be done individually if needed, not as a coordinated phase.
 
 ---
 

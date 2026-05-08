@@ -66,3 +66,28 @@ def test_has_unpushed_commits_with_upstream(tmp_path):
     subprocess.run(["git", "commit", "-m", "ahead"], cwd=local, check=True, capture_output=True)
 
     assert git.has_unpushed_commits(local) is True
+
+
+def test_head_sha_returns_sha(repo):
+    sha = git.head_sha(repo)
+    assert len(sha) == 40
+    assert sha.isalnum()
+
+
+def test_head_sha_not_a_repo(tmp_path):
+    assert git.head_sha(tmp_path) == ""
+
+
+def test_show_file_returns_content(repo):
+    sha = git.head_sha(repo)
+    content = git.show_file(repo, sha, "file.txt")
+    assert content == b"hello\n"
+
+
+def test_show_file_missing_path_returns_none(repo):
+    sha = git.head_sha(repo)
+    assert git.show_file(repo, sha, "nonexistent.txt") is None
+
+
+def test_show_file_empty_sha_returns_none(repo):
+    assert git.show_file(repo, "", "file.txt") is None

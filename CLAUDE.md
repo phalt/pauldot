@@ -45,7 +45,7 @@ All structural decisions (layout, tooling, conventions) follow [phalt/paulblish]
 
 - **`gh` is shelled out.** `gh.py` wraps it; `pauldot help gh` is the user-facing walkthrough.
 
-- **`apply` and `sync` are separate verbs.** Apply is deterministic from local state. Sync handles git pull/push. They are separate — though `sync` will auto-apply after a pull that brings new commits.
+- **`apply` and `sync` are separate verbs.** Apply is deterministic from local state. Sync handles git pull/push. They are separate — the user runs `apply` after a pull that brings changes they want active.
 
 - **CLI output uses `rich`.** Tables for summaries, prompts via `rich.prompt`. No bare `print` in user-facing output.
 
@@ -65,7 +65,7 @@ uv run pauldot status          # dry-run apply, no side effects
 
 ## Implementation Progress
 
-Current phase: **Refactor Phase 2 — Profile System Fixes** (not yet started)
+Current phase: **Refactor Phase 6 — Documentation**
 
 The original build phases (0.1–0.7) are complete. All future work follows `SPEC_REFACTOR.md`. After completing each step within a phase, check it off there (change `- [ ]` to `- [x]`). Update the current phase note here when a phase completes.
 
@@ -82,9 +82,9 @@ The original build phases (0.1–0.7) are complete. All future work follows `SPE
 - Refactor Phase 1 — Zshrc engine rewrite: plain-file output, drop symlink + generated-file model ✓
 - Refactor Phase 2 — Profile system fixes: env bug, auto-apply on alias add + profile set, display.py ✓
 - Refactor Phase 3 — Tool streaming and update command ✓
-- Refactor Phase 4 — Dotfile tracking (`pauldot track`, per-profile `dotfiles` list) ← **current**
-- Refactor Phase 5 — Workflow improvements (`init --apply`, sync auto-apply, edit auto-apply, completions)
-- Refactor Phase 6 — Documentation (all flow docs, mermaid diagrams, README, SPEC.md)
+- Refactor Phase 4 — Dotfile tracking (`pauldot track`, per-profile `dotfiles` list) ✓
+- Refactor Phase 5 — ~~Workflow improvements~~ — skipped (superseded by sync state machine)
+- Refactor Phase 6 — Documentation (all flow docs, mermaid diagrams, README, SPEC.md) ← **current**
 
 ## Architecture
 

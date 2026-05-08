@@ -83,3 +83,30 @@ def push(repo_path: pathlib.Path) -> str:
     if result.returncode != 0:
         raise RuntimeError(f"git push failed:\n{result.stderr.strip()}")
     return result.stdout.strip()
+
+
+def head_sha(repo_path: pathlib.Path) -> str:
+    """Return the current HEAD commit SHA, or empty string if not in a git repo."""
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo_path,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return ""
+    return result.stdout.strip()
+
+
+def show_file(repo_path: pathlib.Path, sha: str, path: str) -> bytes | None:
+    """Return file content at the given commit SHA, or None if the path is not in the tree."""
+    if not sha:
+        return None
+    result = subprocess.run(
+        ["git", "show", f"{sha}:{path}"],
+        cwd=repo_path,
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout
