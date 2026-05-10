@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+         <loc>https://phalt.github.io/pauldot/</loc>
+         <lastmod>2026-05-10</lastmod>
+    </url>
+    <url>
+         <loc>https://phalt.github.io/pauldot/flows/aliases/</loc>
+         <lastmod>2026-05-10</lastmod>
+    </url>
+    <url>
+         <loc>https://phalt.github.io/pauldot/flows/bootstrap/</loc>
+         <lastmod>2026-05-10</lastmod>
+    </url>
+    <url>
+         <loc>https://phalt.github.io/pauldot/flows/migrate/</loc>
+         <lastmod>2026-05-10</lastmod>
+    </url>
+    <url>
+         <loc>https://phalt.github.io/pauldot/flows/profiles/</loc>
+         <lastmod>2026-05-10</lastmod>
+    </url>
+    <url>
+         <loc>https://phalt.github.io/pauldot/flows/tools/</loc>
+         <lastmod>2026-05-10</lastmod>
+    </url>
+    <url>
+         <loc>https://phalt.github.io/pauldot/flows/track/</loc>
+         <lastmod>2026-05-10</lastmod>
+    </url>
+</urlset>
