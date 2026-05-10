@@ -8,22 +8,15 @@
 |_|
 ```
 
-Pauldot is my personal system manager. 
+Pauldot is a terminal and tooling configuration manager for users who want to keep their configuration across multiple machines in sync.
 
-It manages my dotfiles, my zshrc aliases, and tool installations across my machines. 
+Use it to manage:
 
-It is designed to be File-first, written in Python, and fork-friendly (so you can adapt it to your needs if you want).
-
-## What it does
-
-- Manages `~/.zshrc` aliases and configuration.
-- Manages the tools I want installed on my machines.
-- Managers machine-specific profiles (`work`, `personal`).
-- A quick CLI for daily tasks: adding aliases, switching profiles etc.
-- Keeps it all in sync using conflict resolution and state tracking.
-- Stores all my configuration in plain text on a git repo.
-- Includes a one-line bootstrap for fresh machines.
-- Just generates `~/.zshrc` output from your dotfiles repo - never anything complicated or special.
+- Aliases
+- Dotfiles
+- Tools
+- Environment variables
+- Profiles
 
 ## Install
 
@@ -33,21 +26,13 @@ uv tool install pauldot
 
 ## Key concepts
 
-**Your dotfiles are all in one place:**
+**Your dotfiles are all in one place and synced across your machines.**
 
-Pauldot is just a CLI tool that reads your dotfiles repo and generates `~/.zshrc` output.
+Pauldot is a CLI tool that reads a dotfiles repo and generates `~/.zshrc` output and installs / updates tools.
 
-Your dotfiles are stored in a git repo and are synced to remote origin when you run `pauldot sync`.
+Your dotfiles are stored in a git repo and synced to remote origin when you run `pauldot sync`.
 
 The CLI tool is configurable via `~/.config/pauldot/state.toml` so if you change repo URL or branch, `pauldot sync` will use the new configuration.
-
-**The `apply` is always idempotent.** 
-
-Run it as many times as you like and it won't re-run steps that have already been completed.
-
-**The `apply` and `sync` commands are separate.** 
-
-You can run `apply` to apply changes from local state, and `sync` to pull/push changes to remote origin.
 
 **The generated `~/.zshrc` is just like any other shell config file.**
 

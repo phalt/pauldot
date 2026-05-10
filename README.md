@@ -1,14 +1,15 @@
 # pauldot
 
-Personal system manager: dotfiles, profiles, and tool installations across machines. File-first, written in Python, fork-friendly.
+Pauldot is a terminal and tooling configuration manager for users who want to keep their configuration across multiple machines in sync.
 
-## What it does
+Use it to manage:
 
-- Manages `~/.zshrc` (and other dotfiles) from a single git repo
-- Layers machine-specific profiles (work, personal) on top of a shared base
-- Declares desired tools and installs them on `apply`
-- Quick CLI for daily tasks: adding aliases, switching profiles, syncing
-- One-line bootstrap on a fresh machine
+- Aliases
+- Dotfiles
+- Tools
+- Environment variables
+- Profiles
+
 
 ## Install
 
