@@ -88,6 +88,26 @@ def test_env_vars_exported_in_generated_content(repo):
     assert 'export WORK_MODE="true"' in content
 
 
+def test_resolve_tools_deduped_when_child_repeats_parent(repo):
+    """Tools listed in both parent and child appear only once in the resolved list."""
+    (repo / "profiles" / "base.toml").write_text('tools = ["starship", "uv", "git"]\n')
+    (repo / "profiles" / "personal.toml").write_text('extends = "base"\ntools = ["starship", "uv", "vim"]\n')
+    result = profiles.resolve(repo, "personal")
+    # starship and uv from base; vim is personal-only; no duplicates
+    assert result.tools == ["starship", "uv", "git", "vim"]
+
+
+def test_resolve_dotfiles_deduped_when_child_repeats_parent(repo):
+    """Dotfiles listed in both parent and child appear only once in the resolved list."""
+    (repo / "profiles" / "base.toml").write_text('dotfiles = [".gitconfig", ".ssh/config"]\n')
+    (repo / "profiles" / "personal.toml").write_text(
+        'extends = "base"\ndotfiles = [".gitconfig", ".config/starship.toml"]\n'
+    )
+    result = profiles.resolve(repo, "personal")
+    # .gitconfig from base; .ssh/config base-only; .config/starship.toml personal-only
+    assert result.dotfiles == [".gitconfig", ".ssh/config", ".config/starship.toml"]
+
+
 def test_env_vars_child_overrides_parent_in_content(repo):
     """Child profile env wins when parent and child both set the same key."""
     (repo / "files" / "zshrc.base").write_text("# base\n")

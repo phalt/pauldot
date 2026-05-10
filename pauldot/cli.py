@@ -242,7 +242,7 @@ def track(
         if cfg.git.auto_commit:
             git.commit(repo_path, f"pauldot: track {home_rel}")
             console.print("✓ Committed to dotfiles repo.")
-    except (FileNotFoundError, RuntimeError):
+    except FileNotFoundError, RuntimeError:
         pass  # auto-commit is best-effort
 
 
@@ -316,7 +316,9 @@ def doctor() -> None:
         checks.append(display.DoctorCheck(status="ok", label="pauldot.toml"))
     except FileNotFoundError:
         checks.append(
-            display.DoctorCheck(status="fail", label="pauldot.toml", detail="repo missing or not a pauldot dotfiles repo")
+            display.DoctorCheck(
+                status="fail", label="pauldot.toml", detail="repo missing or not a pauldot dotfiles repo"
+            )
         )
 
     # 4. ~/.zshrc
@@ -324,7 +326,9 @@ def doctor() -> None:
     if zshrc_path.is_symlink():
         checks.append(
             display.DoctorCheck(
-                status="warn", label="~/.zshrc", detail="is a symlink (old pauldot model) — run `pauldot apply` to migrate"
+                status="warn",
+                label="~/.zshrc",
+                detail="is a symlink (old pauldot model) — run `pauldot apply` to migrate",
             )
         )
     elif zshrc_path.exists():
@@ -347,16 +351,22 @@ def doctor() -> None:
                 statuses = dotfiles.status(profile.dotfiles, home, repo_path)
                 for ds in statuses:
                     if ds.state == "in_sync":
-                        checks.append(display.DoctorCheck(status="ok", label=f"~/{ds.path}", detail="in sync with repo"))
+                        checks.append(
+                            display.DoctorCheck(status="ok", label=f"~/{ds.path}", detail="in sync with repo")
+                        )
                     elif ds.state == "drift":
                         checks.append(
                             display.DoctorCheck(
-                                status="warn", label=f"~/{ds.path}", detail="live differs from repo — run `pauldot sync`"
+                                status="warn",
+                                label=f"~/{ds.path}",
+                                detail="live differs from repo — run `pauldot sync`",
                             )
                         )
                     elif ds.state == "not_on_disk":
                         checks.append(
-                            display.DoctorCheck(status="warn", label=f"~/{ds.path}", detail="missing — run `pauldot apply`")
+                            display.DoctorCheck(
+                                status="warn", label=f"~/{ds.path}", detail="missing — run `pauldot apply`"
+                            )
                         )
                     elif ds.state == "not_in_repo":
                         checks.append(
@@ -500,7 +510,7 @@ def absorb(
         if cfg.git.auto_commit:
             git.commit(repo_path, "pauldot: absorb zshrc modifications")
             console.print("✓ Committed to dotfiles repo.")
-    except (FileNotFoundError, RuntimeError):
+    except FileNotFoundError, RuntimeError:
         pass  # auto-commit is best-effort
 
 
@@ -538,7 +548,7 @@ def migrate(
         if cfg.git.auto_commit:
             git.commit(repo_path, "pauldot: migrate existing zshrc")
             console.print("✓ Committed to dotfiles repo.")
-    except (FileNotFoundError, RuntimeError):
+    except FileNotFoundError, RuntimeError:
         pass  # auto-commit is best-effort
 
     console.print("\nReview the changes, then run `pauldot apply` when ready.")

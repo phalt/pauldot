@@ -38,9 +38,9 @@ def resolve(repo_path: pathlib.Path, name: str) -> ResolvedProfile:
 
     if profile.zshrc:
         zshrc_files.append(repo_path / profile.zshrc)
-    tools.extend(profile.tools)
+    tools.extend(t for t in profile.tools if t not in tools)
     env.update(profile.env)  # child wins on conflicts
-    dotfiles.extend(profile.dotfiles)
+    dotfiles.extend(p for p in profile.dotfiles if p not in dotfiles)
 
     return ResolvedProfile(
         name=name,
