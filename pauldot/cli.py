@@ -8,12 +8,10 @@ import typing
 
 import typer
 from rich import console as rich_console
-from rich import table as rich_table
-from rich import text as rich_text
 
+from pauldot import __version__, config, display, dotfiles, git, profiles, scaffold, state, zshrc
 from pauldot import absorb as pauldot_absorb
 from pauldot import apply as pauldot_apply
-from pauldot import config, display, dotfiles, git, profiles, scaffold, state, zshrc
 from pauldot import migrate as pauldot_migrate
 from pauldot import sync as pauldot_sync
 from pauldot.commands import alias as cmd_alias
@@ -23,13 +21,20 @@ from pauldot.commands import tool as cmd_tool
 
 _BANNER = (
     "\b\n"
-    + r"""                   _     _       _
+    + rf"""                   _     _       _
  _ __   __ _ _   _| | __| | ___ | |_
 | '_ \ / _` | | | | |/ _` |/ _ \| __|
 | |_) | (_| | |_| | | (_| | (_) | |_
 | .__/ \__,_|\__,_|_|\__,_|\___/ \__|
 |_|
-personal system manager for bash aliases & tools"""
+
+Pauldot. Version: {__version__}
+
+Terminal and tooling config manager.
+
+Docs: https://phalt.github.io/pauldot/
+
+Written by: https://paulwrites.software"""
 )
 
 app = typer.Typer(no_args_is_help=True, help=_BANNER)
@@ -146,7 +151,7 @@ def apply(
         typer.Option("--overwrite", help="Overwrite existing live dotfiles with repo versions (backs up first)."),
     ] = False,
 ) -> None:
-    """Reconcile current profile: write ~/.zshrc, install missing tools, bootstrap dotfiles."""
+    """Apply the current profile."""
     try:
         result = pauldot_apply.run(pathlib.Path.home(), overwrite=overwrite, console=console)
     except (FileNotFoundError, RuntimeError) as e:
@@ -156,8 +161,14 @@ def apply(
 
 
 @app.command()
+def version() -> None:
+    """Print the current version of pauldot."""
+    console.print(f"pauldot version {__version__}")
+
+
+@app.command()
 def status() -> None:
-    """Dry-run apply: show what would change without touching anything."""
+    """Show what would change without touching anything."""
     home = pathlib.Path.home()
     try:
         result = pauldot_apply.run(home, dry_run=True)
@@ -178,14 +189,7 @@ def status() -> None:
 
     try:
         ss = state.load_state()
-        if ss.has_attention:
-            console.print()
-            console.print("[yellow]⚠[/yellow] Unresolved sync issues (run [bold]pauldot sync[/bold] for details):")
-            for path, action in ss.all_pending():
-                if action == "remote_updated":
-                    console.print(f"  [cyan]↓[/cyan]  ~/{path} — remote has a newer version")
-                elif action == "conflict":
-                    console.print(f"  [red]⚠[/red]  ~/{path} — conflict: both sides changed")
+        display.print_status_attention(ss)
     except FileNotFoundError:
         pass
 
@@ -196,7 +200,7 @@ def track(
         pathlib.Path, typer.Argument(help="Path to the file to track (absolute or relative to $HOME).")
     ],
 ) -> None:
-    """Track a dotfile: copy it into the repo and add it to the active profile."""
+    """Track a dotfile."""
     home = pathlib.Path.home()
     repo_path = home / ".pauldot"
 
@@ -238,7 +242,7 @@ def track(
         if cfg.git.auto_commit:
             git.commit(repo_path, f"pauldot: track {home_rel}")
             console.print("✓ Committed to dotfiles repo.")
-    except FileNotFoundError, RuntimeError:
+    except (FileNotFoundError, RuntimeError):
         pass  # auto-commit is best-effort
 
 
@@ -289,52 +293,51 @@ def doctor() -> None:
     home = pathlib.Path.home()
     repo_path = home / ".pauldot"
 
-    t = rich_table.Table(show_header=False, box=None, padding=(0, 2))
-    t.add_column(no_wrap=True)
-    t.add_column(no_wrap=True)
-
-    def ok(label: str, detail: str = "") -> None:
-        t.add_row(rich_text.Text(f"✓  {label}", style="green"), rich_text.Text(detail, style="dim"))
-
-    def warn(label: str, detail: str = "") -> None:
-        t.add_row(rich_text.Text(f"⚠  {label}", style="yellow"), rich_text.Text(detail, style="dim"))
-
-    def fail(label: str, detail: str = "") -> None:
-        t.add_row(rich_text.Text(f"✗  {label}", style="red"), rich_text.Text(detail, style="dim"))
+    checks: list[display.DoctorCheck] = []
 
     # 1. state.toml
+    s = None
     try:
         s = state.load_state()
-        ok("state.toml", f"profile: {s.active_profile}")
+        checks.append(display.DoctorCheck(status="ok", label="state.toml", detail=f"profile: {s.active_profile}"))
     except FileNotFoundError:
-        fail("state.toml", "run `pauldot init <repo-url>`")
-        s = None
+        checks.append(display.DoctorCheck(status="fail", label="state.toml", detail="run `pauldot init <repo-url>`"))
 
     # 2. dotfiles repo
     if repo_path.exists():
-        ok("dotfiles repo", str(repo_path))
+        checks.append(display.DoctorCheck(status="ok", label="dotfiles repo", detail=str(repo_path)))
     else:
-        fail("dotfiles repo", f"{repo_path} not found")
+        checks.append(display.DoctorCheck(status="fail", label="dotfiles repo", detail=f"{repo_path} not found"))
 
     # 3. pauldot.toml
+    cfg = None
     try:
         cfg = config.load_pauldot_config(repo_path)
-        ok("pauldot.toml")
+        checks.append(display.DoctorCheck(status="ok", label="pauldot.toml"))
     except FileNotFoundError:
-        fail("pauldot.toml", "repo missing or not a pauldot dotfiles repo")
-        cfg = None
+        checks.append(
+            display.DoctorCheck(status="fail", label="pauldot.toml", detail="repo missing or not a pauldot dotfiles repo")
+        )
 
     # 4. ~/.zshrc
-    zshrc_link = home / ".zshrc"
-    if zshrc_link.is_symlink():
-        warn("~/.zshrc", "is a symlink (old pauldot model) — run `pauldot apply` to migrate")
-    elif zshrc_link.exists():
-        if zshrc_link.read_text().startswith(zshrc.PAULDOT_HEADER):
-            ok("~/.zshrc", "managed by pauldot")
+    zshrc_path = home / ".zshrc"
+    if zshrc_path.is_symlink():
+        checks.append(
+            display.DoctorCheck(
+                status="warn", label="~/.zshrc", detail="is a symlink (old pauldot model) — run `pauldot apply` to migrate"
+            )
+        )
+    elif zshrc_path.exists():
+        if zshrc_path.read_text().startswith(zshrc.PAULDOT_HEADER):
+            checks.append(display.DoctorCheck(status="ok", label="~/.zshrc", detail="managed by pauldot"))
         else:
-            warn("~/.zshrc", "exists but not managed by pauldot — run `pauldot apply`")
+            checks.append(
+                display.DoctorCheck(
+                    status="warn", label="~/.zshrc", detail="exists but not managed by pauldot — run `pauldot apply`"
+                )
+            )
     else:
-        warn("~/.zshrc", "not found — run `pauldot apply`")
+        checks.append(display.DoctorCheck(status="warn", label="~/.zshrc", detail="not found — run `pauldot apply`"))
 
     # 5. tracked dotfiles
     if s and repo_path.exists():
@@ -344,13 +347,23 @@ def doctor() -> None:
                 statuses = dotfiles.status(profile.dotfiles, home, repo_path)
                 for ds in statuses:
                     if ds.state == "in_sync":
-                        ok(f"~/{ds.path}", "in sync with repo")
+                        checks.append(display.DoctorCheck(status="ok", label=f"~/{ds.path}", detail="in sync with repo"))
                     elif ds.state == "drift":
-                        warn(f"~/{ds.path}", "live differs from repo — run `pauldot sync`")
+                        checks.append(
+                            display.DoctorCheck(
+                                status="warn", label=f"~/{ds.path}", detail="live differs from repo — run `pauldot sync`"
+                            )
+                        )
                     elif ds.state == "not_on_disk":
-                        warn(f"~/{ds.path}", "missing — run `pauldot apply`")
+                        checks.append(
+                            display.DoctorCheck(status="warn", label=f"~/{ds.path}", detail="missing — run `pauldot apply`")
+                        )
                     elif ds.state == "not_in_repo":
-                        warn(f"~/{ds.path}", "not in repo — run `pauldot track <path>`")
+                        checks.append(
+                            display.DoctorCheck(
+                                status="warn", label=f"~/{ds.path}", detail="not in repo — run `pauldot track <path>`"
+                            )
+                        )
         except FileNotFoundError:
             pass
 
@@ -358,18 +371,30 @@ def doctor() -> None:
     if s:
         for path, action in s.all_pending():
             if action == "remote_updated":
-                warn(f"~/{path}", "remote newer — run `pauldot apply --overwrite`")
+                checks.append(
+                    display.DoctorCheck(
+                        status="warn", label=f"~/{path}", detail="remote newer — run `pauldot apply --overwrite`"
+                    )
+                )
             elif action == "conflict":
-                fail(f"~/{path}", "conflict — resolve then run `pauldot sync`")
+                checks.append(
+                    display.DoctorCheck(
+                        status="fail", label=f"~/{path}", detail="conflict — resolve then run `pauldot sync`"
+                    )
+                )
 
     # 7. gh binary (if private repo)
     if cfg and cfg.git.visibility == "private":
         if shutil.which("gh"):
-            ok("gh binary")
+            checks.append(display.DoctorCheck(status="ok", label="gh binary"))
         else:
-            warn("gh binary", "not found — needed for private repos (`pauldot help gh`)")
+            checks.append(
+                display.DoctorCheck(
+                    status="warn", label="gh binary", detail="not found — needed for private repos (`pauldot help gh`)"
+                )
+            )
 
-    console.print(t)
+    display.print_doctor_result(checks)
 
 
 @app.command()
@@ -387,7 +412,6 @@ def clean(
     home = pathlib.Path.home()
     repo_path = home / ".pauldot"
 
-    # Collect the live paths pauldot manages: .zshrc plus tracked dotfiles.
     managed: list[pathlib.Path] = [home / ".zshrc"]
     try:
         s = state.load_state()
@@ -399,24 +423,11 @@ def clean(
 
     backups: list[pathlib.Path] = []
     for live in managed:
-        # Glob for siblings named <original>.bak.<anything>
         backups.extend(sorted(live.parent.glob(f"{live.name}.bak.*")))
 
-    if not backups:
-        console.print("No backup files found.")
-        return
+    display.print_clean_result(backups, home, yes)
 
-    t = rich_table.Table(show_header=False, box=None, padding=(0, 2))
-    t.add_column(no_wrap=True)
-    t.add_column(no_wrap=True)
-    for b in backups:
-        rel = b.relative_to(home)
-        action = rich_text.Text("✓ deleted", style="green") if yes else rich_text.Text("would delete", style="dim")
-        t.add_row(rich_text.Text(f"~/{rel}"), action)
-    console.print(t)
-
-    if not yes:
-        console.print(f"\n{len(backups)} backup(s) found. Run [bold]pauldot clean --yes[/bold] to delete them.")
+    if not backups or not yes:
         return
 
     for b in backups:
@@ -426,7 +437,7 @@ def clean(
 
 @app.command()
 def sync() -> None:
-    """Sync dotfiles: pull remote changes first, then push any local edits."""
+    """Pull remote changes first, then push any local edits."""
     home = pathlib.Path.home()
     repo_path = home / ".pauldot"
 
@@ -441,19 +452,7 @@ def sync() -> None:
         raise typer.Exit(1) from None
 
     if result.blocked_by_state:
-        console.print("[yellow]⚠[/yellow] Sync blocked — unresolved issues from a previous sync:\n")
-        for r in result.blocked_by_state:
-            if r.action == "remote_updated":
-                console.print(
-                    f"  [cyan]↓[/cyan]  ~/{r.path} — remote has a newer version.\n"
-                    f"     Run [bold]pauldot apply --overwrite[/bold] to update your local file."
-                )
-            elif r.action == "conflict":
-                console.print(
-                    f"  [red]⚠[/red]  ~/{r.path} — conflict: both sides changed.\n"
-                    f"     Resolve manually or run [bold]pauldot apply --overwrite[/bold] to accept the remote version."
-                )
-        console.print()
+        display.print_sync_blocked(result.blocked_by_state)
         raise typer.Exit(1)
 
     if result.sync_results:
@@ -461,28 +460,10 @@ def sync() -> None:
 
     needs_attention = [r for r in result.sync_results if r.action in ("remote_updated", "conflict")]
     if needs_attention:
-        console.print()
-        for r in needs_attention:
-            if r.action == "remote_updated":
-                console.print(
-                    f"[cyan]↓[/cyan]  ~/{r.path} — remote has a newer version.\n"
-                    f"   Run [bold]pauldot apply --overwrite[/bold] to update your local file."
-                )
-            elif r.action == "conflict":
-                console.print(
-                    f"[red]⚠[/red]  ~/{r.path} — both sides changed.\n"
-                    f"   Resolve manually, then run [bold]pauldot sync[/bold] again.\n"
-                    f"   Or run [bold]pauldot apply --overwrite[/bold] to accept the remote version."
-                )
-        console.print("[yellow]⚠[/yellow] Resolve the above before pushing. Exiting without push.")
+        display.print_sync_attention(needs_attention)
         raise typer.Exit(1)
 
-    if result.committed:
-        console.print("✓ Committed local dotfile changes.")
-    if result.pushed:
-        console.print("✓ Pushed.")
-    else:
-        console.print("  Nothing to push.")
+    display.print_sync_committed_pushed(result.committed, result.pushed)
 
 
 @app.command()
@@ -495,9 +476,9 @@ def absorb(
         bool, typer.Option("--dry-run", help="Show what would be absorbed without writing anything.")
     ] = False,
 ) -> None:
-    """Absorb external zshrc modifications back into your dotfiles source files.
+    """Absorb external zshrc modifications.
 
-    Diffs .zshrc.generated against what pauldot would generate and appends the
+    Diffs ~/.zshrc against what pauldot would generate and appends the
     extra lines (written by tools like nvm, pyenv, brew) to the target source file.
     """
     home = pathlib.Path.home()
@@ -509,24 +490,17 @@ def absorb(
         console.print(f"[red]Error:[/red] {e}")
         raise typer.Exit(1) from None
 
-    if not result.lines:
-        console.print("Nothing to absorb.")
-        return
+    display.print_absorb_result(result, target, dry_run)
 
-    if dry_run:
-        console.print(f"Would absorb {len(result.lines)} line(s) into files/{target}:\n")
-        for line in result.lines:
-            console.print(f"  {line}", style="dim")
+    if not result.lines or dry_run:
         return
-
-    console.print(f"✓ Absorbed {len(result.lines)} line(s) into {result.target}")
 
     try:
         cfg = config.load_pauldot_config(repo_path)
         if cfg.git.auto_commit:
             git.commit(repo_path, "pauldot: absorb zshrc modifications")
             console.print("✓ Committed to dotfiles repo.")
-    except FileNotFoundError, RuntimeError:
+    except (FileNotFoundError, RuntimeError):
         pass  # auto-commit is best-effort
 
 
@@ -536,7 +510,7 @@ def migrate(
         bool, typer.Option("--dry-run", help="Show what would be migrated without writing anything.")
     ] = False,
 ) -> None:
-    """Migrate an existing ~/.zshrc into your pauldot dotfiles repo.
+    """Migrate an existing ~/.zshrc. Use when setting up pauldot on a new machine.
 
     Splits aliases into files/aliases.zsh and everything else into files/zshrc.base.
     Run this once on a machine that already has a ~/.zshrc before running `pauldot apply`.
@@ -554,29 +528,7 @@ def migrate(
         console.print(f"[red]Error:[/red] {e}")
         raise typer.Exit(1) from None
 
-    t = rich_table.Table(show_header=False, box=None, padding=(0, 2))
-    t.add_column(no_wrap=True)
-    t.add_column(no_wrap=True)
-
-    prefix = "Would migrate" if dry_run else "✓ Migrated"
-
-    t.add_row(
-        rich_text.Text("files/zshrc.base", style="bold"),
-        rich_text.Text(f"{prefix} {result.zshrc_line_count} line(s)", style="dim" if dry_run else "green"),
-    )
-    t.add_row(
-        rich_text.Text("files/aliases.zsh", style="bold"),
-        rich_text.Text(f"{prefix} {len(result.aliases_added)} alias(es)", style="dim" if dry_run else "green"),
-    )
-    if result.aliases_skipped:
-        t.add_row(
-            rich_text.Text("  skipped", style="dim"),
-            rich_text.Text(
-                f"{len(result.aliases_skipped)} alias(es) already defined",
-                style="dim",
-            ),
-        )
-    console.print(t)
+    display.print_migrate_result(result, dry_run)
 
     if dry_run:
         return
@@ -586,7 +538,7 @@ def migrate(
         if cfg.git.auto_commit:
             git.commit(repo_path, "pauldot: migrate existing zshrc")
             console.print("✓ Committed to dotfiles repo.")
-    except FileNotFoundError, RuntimeError:
+    except (FileNotFoundError, RuntimeError):
         pass  # auto-commit is best-effort
 
     console.print("\nReview the changes, then run `pauldot apply` when ready.")
