@@ -1598,13 +1598,13 @@ Dropped. The items in this phase (`init --apply`, sync auto-apply, edit auto-app
 
 Do last — describes the completed system.
 
-- [ ] Update `README.md` (section 15.8)
-- [ ] Update `docs/index.md` (section 15.1)
-- [ ] Update `docs/flows/bootstrap.md` with new mermaid (section 15.3)
-- [ ] Update `docs/flows/aliases.md` with new mermaid (section 15.4)
-- [ ] Update `docs/flows/tools.md` (section 15.8 / 17.8)
-- [ ] Update `docs/flows/migrate.md` (section 15.5)
-- [ ] Create `docs/flows/profiles.md` with mermaid (section 15.6)
-- [ ] Create `docs/flows/track.md` with mermaid (section 15.7)
-- [ ] Update `mkdocs.yml` (section 15.9)
-- [ ] Update `SPEC.md` (section 15.10)
+- [x] Update `README.md` (section 15.8)
+- [x] Update `docs/index.md` (section 15.1)
+- [x] Update `docs/flows/bootstrap.md` with new mermaid (section 15.3)
+- [x] Update `docs/flows/aliases.md` with new mermaid (section 15.4)
+- [x] Update `docs/flows/tools.md` (section 15.8 / 17.8)
+- [x] Update `docs/flows/migrate.md` (section 15.5)
+- [x] Create `docs/flows/profiles.md` with mermaid (section 15.6)
+- [x] Create `docs/flows/track.md` with mermaid (section 15.7)
+- [x] Update `mkdocs.yml` (section 15.9)
+- [x] Update `SPEC.md` (section 15.10)

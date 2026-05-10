@@ -1,6 +1,6 @@
 # Migrate an existing machine
 
-This flow covers adding pauldot to a machine that **already has a `~/.zshrc`** with aliases, exports, and tool config you want to keep — and an existing dotfiles repo you want to bring it under.
+This flow covers adding pauldot to a machine that **already has a `~/.zshrc`** with aliases, exports, and tool config you want to keep, and an existing dotfiles repo you want to bring it under.
 
 The key tool here is `pauldot migrate`, which reads your existing `~/.zshrc` before pauldot touches anything and distributes the content into your dotfiles source files. You review and commit the result, then run `apply`.
 
@@ -27,7 +27,7 @@ flowchart TD
     H -->|Yes| J["pauldot migrate"]
     J --> K["pauldot sync\nPushes migrated changes to remote"]
     K --> L["pauldot apply"]
-    L --> M(["✓ Machine configured\n~/.zshrc is now a managed symlink"])
+    L --> M(["✓ Machine configured\n~/.zshrc is now written by pauldot"])
 ```
 
 ---
@@ -103,7 +103,7 @@ This pushes the migrated changes so other machines can pull them.
 pauldot apply
 ```
 
-Your existing `~/.zshrc` is backed up to `~/.zshrc.bak.<timestamp>`, and a new symlink is created pointing at the generated file. Open a new shell to pick up the changes.
+Your existing `~/.zshrc` is backed up to `~/.zshrc.bak.<timestamp>`. Pauldot writes a new `~/.zshrc` from your dotfiles source files. Open a new shell to pick up the changes.
 
 ---
 

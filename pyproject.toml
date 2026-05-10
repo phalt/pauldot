@@ -1,6 +1,6 @@
 [project]
 name = "pauldot"
-version = "0.4.0"
+version = "1.0.0"
 description = "Personal system manager: dotfiles, profiles, and tool installations across machines."
 authors = [{ name = "Paul Hallett" }]
 license = { text = "MIT" }

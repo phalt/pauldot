@@ -1,8 +1,6 @@
 # Bootstrap a new machine
 
-This flow covers setting up pauldot **for the first time** — creating your dotfiles repo from scratch and getting your first machine under management.
-
-If you already have a dotfiles repo and are adding a machine that has existing config, see [Migrate an existing machine](migrate.md) instead.
+This flow covers setting up pauldot **for the first time ever** i.e. creating your dotfiles repo from scratch and getting your first machine under management.
 
 ---
 
@@ -21,20 +19,11 @@ flowchart TD
     D -->|No / not yet| G["gh repo create you/dotfiles --private --clone"]
 
     G --> H["pauldot init --scaffold ./dotfiles"]
-    H --> I[Edit pauldot.toml\nSet default_profile, visibility, etc.]
-    I --> J[Edit bootstrap.sh\nSet PAULDOT_REPO to your repo URL]
-    J --> K{Existing ~/.zshrc\nto bring in?}
-
-    K -->|Yes| L["pauldot migrate --dry-run"]
-    L --> M{Looks right?}
-    M -->|Adjust source files| L
-    M -->|Yes| N["pauldot migrate"]
-    N --> O
-
-    K -->|No| O["git add . && git commit -m 'init' && git push"]
-    O --> P["pauldot init git@github.com:you/dotfiles"]
-    P --> Q["pauldot apply"]
-    Q --> R(["✓ Machine configured"])
+    H --> I["Edit pauldot.toml and bootstrap.sh"]
+    I --> N["git add . && git commit -m 'init' && git push"]
+    N --> O["pauldot init git@github.com:you/dotfiles"]
+    O --> P["pauldot apply"]
+    P --> Q(["✓ Machine configured"])
 ```
 
 ---
@@ -53,6 +42,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 ```sh
 uv tool install pauldot
+pauldot --install-completion && exec zsh
 ```
 
 ### 3. Authenticate with GitHub (private repos)
@@ -78,31 +68,20 @@ Edit `pauldot.toml` — set your `default_profile`, `git.visibility`, and anythi
 
 Edit `bootstrap.sh` — set `PAULDOT_REPO` to your repo's SSH URL.
 
-### 6. Migrate your existing zshrc (optional)
-
-If this machine already has a `~/.zshrc` you want to preserve:
-
-```sh
-pauldot migrate --dry-run   # preview: aliases → aliases.zsh, rest → zshrc.base
-pauldot migrate             # write it
-```
-
-Review the diff before committing.
-
-### 7. Commit and push
+### 6. Commit and push
 
 ```sh
 cd dotfiles && git add . && git commit -m "init" && git push
 ```
 
-### 8. Apply
+### 7. Apply
 
 ```sh
 pauldot init git@github.com:you/dotfiles
 pauldot apply
 ```
 
-`apply` generates `~/.zshrc`, symlinks it, and installs any declared tools.
+`apply` writes `~/.zshrc` from your source files and installs any declared tools.
 
 Open a new shell — you're done.
 
@@ -118,6 +97,7 @@ Or manually:
 
 ```sh
 uv tool install pauldot
+pauldot --install-completion && exec zsh
 pauldot init git@github.com:you/dotfiles
 pauldot apply
 ```

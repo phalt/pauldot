@@ -65,7 +65,7 @@ uv run pauldot status          # dry-run apply, no side effects
 
 ## Implementation Progress
 
-Current phase: **Refactor Phase 6 — Documentation**
+Current phase: **Complete** — all original build phases and refactor phases done
 
 The original build phases (0.1–0.7) are complete. All future work follows `SPEC_REFACTOR.md`. After completing each step within a phase, check it off there (change `- [ ]` to `- [x]`). Update the current phase note here when a phase completes.
 

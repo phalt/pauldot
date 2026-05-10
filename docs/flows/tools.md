@@ -89,7 +89,7 @@ install.linux = "sudo apt install ripgrep"
 pauldot apply
 ```
 
-For each tool in your active profile, `apply` runs the check command. If it exits non-zero (tool missing), the install command for the current OS is executed. The result is printed in a summary table.
+For each tool in your active profile, `apply` runs the check command. If it exits non-zero (tool missing), the install command for the current OS is executed and its output streams live to the terminal. The result is printed in a summary table.
 
 Tool install failures do **not** abort the loop — each failure is reported and the run continues.
 

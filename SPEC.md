@@ -52,7 +52,11 @@ The CLI never hardcodes a dotfiles repo URL. The user's repo URL lives in their 
 │   ├── zshrc.base
 │   ├── zshrc.work
 │   ├── zshrc.personal
-│   └── aliases.zsh
+│   ├── aliases.zsh
+│   └── home/                     # tracked dotfiles (optional)
+│       ├── .gitconfig
+│       └── .config/
+│           └── starship.toml
 ├── tools/
 │   └── tools.toml
 └── bootstrap.sh
@@ -101,12 +105,16 @@ zshrc = "files/zshrc.work"
 
 tools = ["starship", "zed", "uv", "obsidian", "ripgrep"]
 
+dotfiles = [".gitconfig", ".config/starship.toml"]
+
 [env]
 WORK_MODE = "true"
 EDITOR = "zed --wait"
 ```
 
 Single-level extends only — `work` extends `base`, no chains.
+
+`dotfiles` lists paths relative to `~`. Each entry maps to a file under `files/home/` in the repo. On `apply`, missing files are copied to `~`; existing files are left alone unless `--overwrite` is passed. `env` variables are exported inline into `~/.zshrc` on apply.
 
 ### `tools/tools.toml`
 
@@ -163,7 +171,8 @@ pauldot help bootstrap               # bootstrap walkthrough
 pauldot help fork                    # how to fork & customise
 pauldot help gh                      # gh auth walkthrough
 
-pauldot absorb                       # absorb external modifications to .zshrc.generated back into source files
+pauldot absorb                       # absorb external modifications to ~/.zshrc back into source files
+pauldot track <path>                 # copy a dotfile into the repo and add it to the active profile
 
 pauldot edit [profile|tools|zshrc|pauldot]
 ```
@@ -210,16 +219,19 @@ Run `pauldot apply` when ready.
 1. Load `state.toml`; resolve active profile
 2. Load `pauldot.toml` from the repo
 3. Resolve profile + extends chain
-4. Detect OS (`platform.system()` → `macos` or `linux`)
+4. Detect OS (`shell.py` → `macos` or `linux`)
 5. **zshrc reconciliation:**
-   - Generate `~/.pauldot/files/.zshrc.generated` (sources base, profile, aliases, env)
-   - Back up any existing non-symlink `~/.zshrc` to `~/.zshrc.bak.<timestamp>`
-   - Symlink `~/.zshrc` → `~/.pauldot/files/.zshrc.generated`
-6. **Tool reconciliation:**
+   - Concatenate source files (base, profile, aliases) and export `env` vars inline
+   - Back up any existing non-pauldot `~/.zshrc` to `~/.zshrc.bak.<timestamp>`
+   - Write the result directly to `~/.zshrc` as a plain file (detected by `PAULDOT_HEADER` on line 1)
+6. **Dotfile reconciliation:**
+   - For each path in the active profile's `dotfiles` list: copy from `files/home/<path>` to `~/<path>` if missing
+   - With `--overwrite`: copy regardless, backing up the existing file first
+7. **Tool reconciliation:**
    - For each tool in the resolved profile: run check, install if missing
    - Skip tools with no install entry for the current OS
    - Failures are reported, don't abort the loop
-7. Print a summary table
+8. Print a summary table
 
 ## How `bootstrap.sh` works
 
@@ -356,13 +368,13 @@ That's it. pauldot itself is unchanged — you just point it at your repo.
 
 ## How `pauldot absorb` works
 
-The problem: `~/.zshrc` is a symlink to `.zshrc.generated`. When external tools (nvm, pyenv, brew, etc.) install themselves they append to `~/.zshrc`, which means they modify `.zshrc.generated` directly. The next `pauldot apply` regenerates that file from source, silently wiping those additions.
+The problem: When external tools (nvm, pyenv, brew, etc.) install themselves they append to `~/.zshrc`. The next `pauldot apply` regenerates `~/.zshrc` from source, silently wiping those additions.
 
 `pauldot absorb` recovers those additions and commits them back into the source files.
 
 **Steps:**
 
-1. Read `.zshrc.generated` (the live, possibly-modified file)
+1. Read `~/.zshrc` (the live, possibly-modified file)
 2. Reconstruct what pauldot would generate from the current source files (without writing anything)
 3. Diff: lines in the live file that are not in the reconstructed output = external additions
 4. Append those lines to the target source file (default: `files/zshrc.base`)
@@ -378,17 +390,17 @@ pauldot absorb --dry-run           # print what would be absorbed without writin
 
 **Behaviour:**
 
-- If `.zshrc.generated` does not exist or is not a symlink target, exits with a clear error
+- If `~/.zshrc` is not managed by pauldot (no `PAULDOT_HEADER`), exits with a clear error
 - If there are no external additions, prints "Nothing to absorb." and exits cleanly
 - Strips blank lines and comment-only blocks from the diff before appending to keep source files clean
-- Never modifies `.zshrc.generated` directly — only the source files
+- Never modifies `~/.zshrc` directly — only the source files
 - The diff is line-order-preserving: additions appear in the order they were appended by tools
 
 **Example session:**
 
 ```
 $ nvm install --lts
-# nvm appends to ~/.zshrc (i.e. .zshrc.generated)
+# nvm appends to ~/.zshrc
 
 $ pauldot absorb --dry-run
 Would append 3 lines to files/zshrc.base:
@@ -402,17 +414,62 @@ $ pauldot absorb
 ✓ Committed to dotfiles repo.
 ```
 
-## How the generated zshrc works
+## How `~/.zshrc` is generated
 
-`~/.zshrc` is a symlink to `~/.pauldot/files/.zshrc.generated`:
+`~/.zshrc` is a plain file written by pauldot — not a symlink. Pauldot detects its own output via the `PAULDOT_HEADER` constant on the first line.
+
+`apply` concatenates the profile's source files in order and writes the result:
 
 ```zsh
-# Generated by pauldot. Do not edit directly.
-# Edit files/zshrc.base, files/zshrc.<profile>, or run `pauldot alias add`.
+# PAULDOT_HEADER — managed by pauldot. Run `pauldot apply` to regenerate.
 
-source ~/.pauldot/files/zshrc.base
-source ~/.pauldot/files/zshrc.work
-source ~/.pauldot/files/aliases.zsh
+# --- zshrc.base ---
+<contents of files/zshrc.base>
+
+# --- zshrc.work ---
+<contents of files/zshrc.work>
+
+# --- aliases.zsh ---
+<contents of files/aliases.zsh>
+
+# --- env ---
+export WORK_MODE="true"
+export EDITOR="zed --wait"
+```
+
+An existing `~/.zshrc` without the `PAULDOT_HEADER` is backed up to `~/.zshrc.bak.<timestamp>` before being replaced. An existing file that already has the header is overwritten in place.
+
+## How dotfile tracking works
+
+`pauldot track <path>` brings an existing dotfile under repo management:
+
+1. Copy `~/<path>` to `files/home/<path>` in the dotfiles repo
+2. Add `"<path>"` to the active profile's `dotfiles` list in `profiles/<name>.toml`
+3. If `git.auto_commit = true`, commit the change
+
+The live file is **not** replaced or symlinked — it stays a real file at its original location.
+
+**On `apply`:**
+
+- For each path in the active profile's `dotfiles` list, check if `~/<path>` exists
+- If missing: copy from `files/home/<path>` → `~/<path>`
+- If present and `--overwrite` is passed: back up the existing file to `<path>.bak.<timestamp>`, then overwrite
+
+**On `pauldot sync`:**
+
+- For each tracked dotfile: compare `~/<path>` (live) vs `files/home/<path>` (repo)
+- If only the live version changed: copy live → repo, commit, push
+- If only the remote changed: eject with a message to run `pauldot apply --overwrite`
+- If both changed: eject with a conflict message
+- If neither changed: skip
+
+**Files layout:**
+
+```
+files/home/
+├── .gitconfig                    # maps to ~/.gitconfig
+└── .config/
+    └── starship.toml             # maps to ~/.config/starship.toml
 ```
 
 ## Project layout (the pauldot tool itself)
@@ -454,27 +511,26 @@ All commands assume `uv`. README examples consistently use `uv run pauldot ...` 
 
 ## Staged build plan
 
-### v0.1 — single profile, one file
+### v0.1 — single profile, one file ✓
 
 - [x] `pauldot apply` symlinks `~/.zshrc` to a hardcoded file
 - [x] `pauldot status` dry-run
-- [x] ~150 lines, proves symlink + backup logic
 
-### v0.2 — TOML config, profiles, init
+### v0.2 — TOML config, profiles, init ✓
 
 - [x] `pauldot.toml`, `profiles/*.toml`
 - [x] `pauldot init <repo-url>` with state.toml
 - [x] `pauldot profile show / set / list`
 - [x] Generated zshrc sourcing base + profile + aliases
 
-### v0.3 — tools
+### v0.3 — tools ✓
 
 - [x] `tools/tools.toml`
 - [x] `pauldot tool list / install / add / remove`
 - [x] OS detection
 - [x] Apply runs tool reconciliation
 
-### v0.4 — quality of life
+### v0.4 — quality of life ✓
 
 - [x] `pauldot alias add`
 - [x] `pauldot edit`
@@ -485,7 +541,7 @@ All commands assume `uv`. README examples consistently use `uv run pauldot ...` 
 
 ### v0.5 — encryption — skipped, out of scope
 
-### v0.6 — fork-friendliness and distribution
+### v0.6 — fork-friendliness and distribution ✓
 
 - [x] `pauldot init --scaffold`
 - [x] `pauldot help fork`
@@ -493,7 +549,7 @@ All commands assume `uv`. README examples consistently use `uv run pauldot ...` 
 - [x] GitHub Actions for PyPI publishing
 - [x] README polish
 
-### v0.7 — absorb
+### v0.7 — absorb ✓
 
 - [x] `pauldot absorb` command
 - [x] `absorb.py` module with diff + append logic
@@ -501,7 +557,14 @@ All commands assume `uv`. README examples consistently use `uv run pauldot ...` 
 - [x] `--target` flag to choose destination file (defaults to `zshrc.base`)
 - [x] Auto-commit absorbed changes if `git.auto_commit = true`
 - [x] Tests for absorb logic
-- [x] README update
+
+### Refactor phases ✓
+
+- [x] Refactor 1 — Zshrc engine: plain-file output, drop symlink model, `PAULDOT_HEADER` detection
+- [x] Refactor 2 — Profile system: env export inline, auto-apply on alias add + profile set, `display.py`
+- [x] Refactor 3 — Tool streaming: always-stream subprocess output, `pauldot tool update`
+- [x] Refactor 4 — Dotfile tracking: `pauldot track`, per-profile `dotfiles` list, `files/home/` layout
+- [x] Refactor 6 — Documentation: flow docs, mermaid diagrams, README, SPEC.md
 
 ### Beyond — defer
 
@@ -515,12 +578,13 @@ All commands assume `uv`. README examples consistently use `uv run pauldot ...` 
 - **Idempotent apply.** Run it ten times, same result.
 - **Fork-friendly by construction.** No hardcoded usernames, repo URLs, or assumptions baked into the code.
 - **Fail loud, recover gracefully.** Tool install failures don't abort the apply loop.
-- **No magic.** Plain TOML, plain zsh, plain symlinks.
+- **No magic.** Plain TOML, plain zsh, plain files.
 - **`uv` everywhere.** Development, installation, distribution. No `pip`, no virtualenvs by hand.
 
 ## Resolved decisions
 
-- **Symlink for `~/.zshrc`** (not source) — cleaner, easier to detect drift
+- **Plain file for `~/.zshrc`** (not a symlink) — pauldot writes it directly and detects its own output via `PAULDOT_HEADER`; symlink model was dropped in Refactor 1
 - **`uv` is the bootstrap dep** — installed first, installs everything else
 - **`apply` and `sync` are separate** — apply is deterministic from local state
 - **`pauldot.toml` is committed** so forks customise it; the dotfiles repo URL itself is local-only
+- **Tracked dotfiles are copies, not symlinks** — apps can write to them freely; `sync` reconciles drift

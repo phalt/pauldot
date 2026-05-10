@@ -16,10 +16,7 @@ sequenceDiagram
     U->>P: pauldot alias add ll "ls -la"
     P->>R: Appends alias to files/aliases.zsh
     P->>R: git commit (if auto_commit = true)
-
-    U->>P: pauldot apply
-    P->>P: Regenerates .zshrc.generated
-    P->>U: ~/.zshrc symlink updated
+    P->>U: Rewrites ~/.zshrc to include new alias
 
     Note over U: Open a new shell — ll works ✓
 
@@ -29,11 +26,8 @@ sequenceDiagram
     Note over M: Later, on Machine B
 
     M->>P: pauldot sync
-    P->>R: git pull
-    P->>M: files/aliases.zsh updated locally
-
-    M->>P: pauldot apply
-    P->>M: ~/.zshrc symlink updated
+    P->>R: git pull (new commits detected)
+    P->>M: Rewrites ~/.zshrc automatically
 
     Note over M: Open a new shell — ll works ✓
 ```
@@ -50,13 +44,12 @@ pauldot alias add ll "ls -la"
 
 This appends `alias ll="ls -la"` to `files/aliases.zsh` in your dotfiles repo. If `git.auto_commit = true`, the change is committed immediately.
 
-### 2. Apply it locally
+### 2. Use it locally
 
-```sh
-pauldot apply
-```
+`alias add` rewrites `~/.zshrc` automatically — no separate `apply` needed. Open a new shell (or `source ~/.zshrc`) to use the alias.
 
-`apply` regenerates the `~/.zshrc` symlink target to include the updated `aliases.zsh`. Open a new shell (or `source ~/.zshrc`) to use the alias.
+!!! tip "Create a reload alias"
+    Add a `reload` alias to your dotfiles repo that sources `~/.zshrc`, so you can run `reload` instead of opening a new shell every time you add an alias.
 
 ### 3. Push to the remote
 
@@ -71,11 +64,10 @@ pauldot sync
 On Machine B:
 
 ```sh
-pauldot sync    # pulls the latest dotfiles
-pauldot apply   # regenerates ~/.zshrc
+pauldot sync
 ```
 
-Open a new shell — the alias is available.
+`sync` pulls the latest dotfiles and, when new commits are detected, rewrites `~/.zshrc` automatically. Open a new shell — the alias is available.
 
 ---
 
