@@ -103,6 +103,15 @@ def save_tools(repo_path: pathlib.Path, tool_list: list[ToolDefinition]) -> None
     path.write_bytes(tomli_w.dumps(data).encode())
 
 
+# TOML field names that correspond to ProfileConfig fields.
+# These functions mutate profile TOML via raw dicts (rather than round-tripping
+# through ProfileConfig) so that unknown keys added by future pauldot versions
+# are preserved. These constants make the coupling to ProfileConfig explicit so
+# a field rename is caught at review time rather than silently going wrong.
+_PROFILE_FIELD_TOOLS = "tools"        # ProfileConfig.tools
+_PROFILE_FIELD_DOTFILES = "dotfiles"  # ProfileConfig.dotfiles
+
+
 def add_tool_to_profile(repo_path: pathlib.Path, profile_name: str, tool_name: str) -> None:
     """Append tool_name to the tools list in profiles/<profile_name>.toml."""
     path = repo_path / "profiles" / f"{profile_name}.toml"
@@ -110,10 +119,10 @@ def add_tool_to_profile(repo_path: pathlib.Path, profile_name: str, tool_name: s
         raise FileNotFoundError(f"Profile '{profile_name}' not found at {path}.")
     with path.open("rb") as f:
         data = tomllib.load(f)
-    tools_list: list[str] = data.get("tools", [])
+    tools_list: list[str] = data.get(_PROFILE_FIELD_TOOLS, [])
     if tool_name not in tools_list:
         tools_list.append(tool_name)
-    data["tools"] = tools_list
+    data[_PROFILE_FIELD_TOOLS] = tools_list
     path.write_bytes(tomli_w.dumps(data).encode())
 
 
@@ -124,8 +133,8 @@ def add_dotfile_to_profile(repo_path: pathlib.Path, profile_name: str, home_rel:
         raise FileNotFoundError(f"Profile '{profile_name}' not found at {path}.")
     with path.open("rb") as f:
         data = tomllib.load(f)
-    dotfiles_list: list[str] = data.get("dotfiles", [])
+    dotfiles_list: list[str] = data.get(_PROFILE_FIELD_DOTFILES, [])
     if home_rel not in dotfiles_list:
         dotfiles_list.append(home_rel)
-    data["dotfiles"] = dotfiles_list
+    data[_PROFILE_FIELD_DOTFILES] = dotfiles_list
     path.write_bytes(tomli_w.dumps(data).encode())
