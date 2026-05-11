@@ -195,12 +195,7 @@ def status() -> None:
         if profile.dotfiles:
             drift = dotfiles.status(profile.dotfiles, home, repo_path)
             display.print_dotfile_status_results(drift)
-    except FileNotFoundError:
-        pass
-
-    try:
-        ss = state.load_state()
-        display.print_status_attention(ss)
+        display.print_status_attention(s)
     except FileNotFoundError:
         pass
 
