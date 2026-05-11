@@ -49,11 +49,22 @@ app.add_typer(
 console = rich_console.Console()
 
 
+def _maybe_commit(repo_path: pathlib.Path, message: str) -> None:
+    """Commit repo changes when auto_commit is enabled. Silently no-ops on any error."""
+    try:
+        cfg = config.load_pauldot_config(repo_path)
+        if cfg.git.auto_commit:
+            git.commit(repo_path, message)
+            console.print("✓ Committed to dotfiles repo.")
+    except (FileNotFoundError, RuntimeError):
+        pass
+
+
 def _print_apply_result(result: pauldot_apply.ApplyResult, dry_run: bool) -> None:
     display.print_zshrc_result(result.zshrc, dry_run)
     display.print_dotfile_apply_results(result.dotfiles, dry_run=dry_run)
     if result.tools:
-        cmd_tool.print_tool_results(result.tools)
+        display.print_tool_results(result.tools)
 
 
 def _gather_repo_url() -> str | None:
@@ -184,12 +195,7 @@ def status() -> None:
         if profile.dotfiles:
             drift = dotfiles.status(profile.dotfiles, home, repo_path)
             display.print_dotfile_status_results(drift)
-    except FileNotFoundError:
-        pass
-
-    try:
-        ss = state.load_state()
-        display.print_status_attention(ss)
+        display.print_status_attention(s)
     except FileNotFoundError:
         pass
 
@@ -237,13 +243,7 @@ def track(
     console.print(f"✓ Tracking ~/{home_rel} in profile '{s.active_profile}'.")
     console.print(f"  Repo copy: {repo_file.relative_to(repo_path)}")
 
-    try:
-        cfg = config.load_pauldot_config(repo_path)
-        if cfg.git.auto_commit:
-            git.commit(repo_path, f"pauldot: track {home_rel}")
-            console.print("✓ Committed to dotfiles repo.")
-    except FileNotFoundError, RuntimeError:
-        pass  # auto-commit is best-effort
+    _maybe_commit(repo_path, f"pauldot: track {home_rel}")
 
 
 @app.command()
@@ -505,13 +505,7 @@ def absorb(
     if not result.lines or dry_run:
         return
 
-    try:
-        cfg = config.load_pauldot_config(repo_path)
-        if cfg.git.auto_commit:
-            git.commit(repo_path, "pauldot: absorb zshrc modifications")
-            console.print("✓ Committed to dotfiles repo.")
-    except FileNotFoundError, RuntimeError:
-        pass  # auto-commit is best-effort
+    _maybe_commit(repo_path, "pauldot: absorb zshrc modifications")
 
 
 @app.command()
@@ -543,12 +537,5 @@ def migrate(
     if dry_run:
         return
 
-    try:
-        cfg = config.load_pauldot_config(repo_path)
-        if cfg.git.auto_commit:
-            git.commit(repo_path, "pauldot: migrate existing zshrc")
-            console.print("✓ Committed to dotfiles repo.")
-    except FileNotFoundError, RuntimeError:
-        pass  # auto-commit is best-effort
-
+    _maybe_commit(repo_path, "pauldot: migrate existing zshrc")
     console.print("\nReview the changes, then run `pauldot apply` when ready.")

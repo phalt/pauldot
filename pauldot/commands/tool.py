@@ -8,34 +8,22 @@ from rich import console as rich_console
 from rich import table as rich_table
 from rich import text as rich_text
 
-from pauldot import config, git, profiles, shell, state, tools
+from pauldot import config, display, git, profiles, shell, state, tools
 
 tool_app = typer.Typer()
 
 console = rich_console.Console()
 
-_TOOL_ACTION_LABELS: dict[str, tuple[str, str]] = {
-    "installed": ("✓ installed", "green"),
-    "already_installed": ("✓ already installed", "dim"),
-    "updated": ("✓ updated", "green"),
-    "skipped": ("– skipped", "dim"),
-    "not_installed": ("✗ not installed", "red"),
-    "failed": ("⚠ failed", "yellow"),
-}
 
-
-def print_tool_results(tool_results: list[tools.ToolResult]) -> None:
-    t = rich_table.Table(show_header=False, box=None, padding=(0, 2))
-    t.add_column(no_wrap=True)
-    t.add_column(no_wrap=True)
-    t.add_column(no_wrap=True)
-
-    for result in tool_results:
-        label, style = _TOOL_ACTION_LABELS[result.action]
-        error_text = rich_text.Text(result.error or "", style="dim")
-        t.add_row(rich_text.Text(result.name), rich_text.Text(label, style=style), error_text)
-
-    console.print(t)
+def _maybe_commit(repo_path: pathlib.Path, message: str) -> None:
+    """Commit repo changes when auto_commit is enabled. Silently no-ops on any error."""
+    try:
+        cfg = config.load_pauldot_config(repo_path)
+        if cfg.git.auto_commit:
+            git.commit(repo_path, message)
+            console.print("✓ Committed to dotfiles repo.")
+    except (FileNotFoundError, RuntimeError):
+        pass
 
 
 @tool_app.command("list")
@@ -103,7 +91,7 @@ def tool_install(
             raise typer.Exit(1) from None
 
     results = tools.reconcile(tool_names, all_tools, os_name, console=console)
-    print_tool_results(results)
+    display.print_tool_results(results)
 
 
 @tool_app.command("update")
@@ -130,7 +118,7 @@ def tool_update(
             raise typer.Exit(1) from None
 
     results = [tools.update(all_tools[n], os_name, console=console) for n in tool_names if n in all_tools]
-    print_tool_results(results)
+    display.print_tool_results(results)
 
 
 @tool_app.command("add")
@@ -188,13 +176,7 @@ def tool_add(
     except FileNotFoundError:
         console.print(f"[yellow]⚠[/yellow] Profile '{target_profile}' not found — tool saved to tools.toml only.")
 
-    try:
-        cfg = config.load_pauldot_config(repo_path)
-        if cfg.git.auto_commit:
-            git.commit(repo_path, f"pauldot: add tool {name}")
-            console.print("✓ Committed to dotfiles repo.")
-    except FileNotFoundError, RuntimeError:
-        pass  # auto-commit is best-effort
+    _maybe_commit(repo_path, f"pauldot: add tool {name}")
 
 
 @tool_app.command("remove")
@@ -211,10 +193,4 @@ def tool_remove(name: str) -> None:
     config.save_tools(repo_path, updated)
     console.print(f"✓ Removed '{name}' from tools/tools.toml.")
 
-    try:
-        cfg = config.load_pauldot_config(repo_path)
-        if cfg.git.auto_commit:
-            git.commit(repo_path, f"pauldot: remove tool {name}")
-            console.print("✓ Committed to dotfiles repo.")
-    except FileNotFoundError, RuntimeError:
-        pass  # auto-commit is best-effort
+    _maybe_commit(repo_path, f"pauldot: remove tool {name}")
