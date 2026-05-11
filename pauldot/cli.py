@@ -64,7 +64,7 @@ def _print_apply_result(result: pauldot_apply.ApplyResult, dry_run: bool) -> Non
     display.print_zshrc_result(result.zshrc, dry_run)
     display.print_dotfile_apply_results(result.dotfiles, dry_run=dry_run)
     if result.tools:
-        cmd_tool.print_tool_results(result.tools)
+        display.print_tool_results(result.tools)
 
 
 def _gather_repo_url() -> str | None:

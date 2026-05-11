@@ -9,7 +9,7 @@ from rich import table as rich_table
 from rich import text as rich_text
 
 from pauldot import absorb as pauldot_absorb
-from pauldot import dotfiles, state, zshrc
+from pauldot import dotfiles, state, tools, zshrc
 from pauldot import migrate as pauldot_migrate
 
 console = rich_console.Console()
@@ -113,6 +113,34 @@ def print_dotfile_status_results(results: list[dotfiles.DotfileStatus]) -> None:
         label, style = _DOTFILE_STATUS_LABELS[result.state]
         hint = rich_text.Text(hints.get(result.state, ""), style="dim")
         t.add_row(rich_text.Text(f"~/{result.path}"), rich_text.Text(label, style=style), hint)
+    console.print(t)
+
+
+# ---------------------------------------------------------------------------
+# tools
+# ---------------------------------------------------------------------------
+
+_TOOL_ACTION_LABELS: dict[str, tuple[str, str]] = {
+    "installed": ("✓ installed", "green"),
+    "already_installed": ("✓ already installed", "dim"),
+    "updated": ("✓ updated", "green"),
+    "skipped": ("– skipped", "dim"),
+    "not_installed": ("✗ not installed", "red"),
+    "failed": ("⚠ failed", "yellow"),
+}
+
+
+def print_tool_results(tool_results: list[tools.ToolResult]) -> None:
+    t = rich_table.Table(show_header=False, box=None, padding=(0, 2))
+    t.add_column(no_wrap=True)
+    t.add_column(no_wrap=True)
+    t.add_column(no_wrap=True)
+
+    for result in tool_results:
+        label, style = _TOOL_ACTION_LABELS[result.action]
+        error_text = rich_text.Text(result.error or "", style="dim")
+        t.add_row(rich_text.Text(result.name), rich_text.Text(label, style=style), error_text)
+
     console.print(t)
 
 
