@@ -103,7 +103,7 @@ def alias_add(
         if cfg.git.auto_commit:
             git.commit(repo_path, f"pauldot: add alias {key}")
             console.print("✓ Committed to dotfiles repo.")
-    except FileNotFoundError, RuntimeError:
+    except (FileNotFoundError, RuntimeError):
         pass  # auto-commit is best-effort
 
     try:
@@ -164,7 +164,7 @@ def alias_remove(
         if cfg.git.auto_commit:
             git.commit(repo_path, f"pauldot: remove alias {key}")
             console.print("✓ Committed to dotfiles repo.")
-    except FileNotFoundError, RuntimeError:
+    except (FileNotFoundError, RuntimeError):
         pass  # auto-commit is best-effort
 
     try:

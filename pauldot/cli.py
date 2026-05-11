@@ -242,7 +242,7 @@ def track(
         if cfg.git.auto_commit:
             git.commit(repo_path, f"pauldot: track {home_rel}")
             console.print("✓ Committed to dotfiles repo.")
-    except FileNotFoundError, RuntimeError:
+    except (FileNotFoundError, RuntimeError):
         pass  # auto-commit is best-effort
 
 
@@ -510,7 +510,7 @@ def absorb(
         if cfg.git.auto_commit:
             git.commit(repo_path, "pauldot: absorb zshrc modifications")
             console.print("✓ Committed to dotfiles repo.")
-    except FileNotFoundError, RuntimeError:
+    except (FileNotFoundError, RuntimeError):
         pass  # auto-commit is best-effort
 
 
@@ -548,7 +548,7 @@ def migrate(
         if cfg.git.auto_commit:
             git.commit(repo_path, "pauldot: migrate existing zshrc")
             console.print("✓ Committed to dotfiles repo.")
-    except FileNotFoundError, RuntimeError:
+    except (FileNotFoundError, RuntimeError):
         pass  # auto-commit is best-effort
 
     console.print("\nReview the changes, then run `pauldot apply` when ready.")
