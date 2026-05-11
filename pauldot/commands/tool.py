@@ -14,6 +14,18 @@ tool_app = typer.Typer()
 
 console = rich_console.Console()
 
+
+def _maybe_commit(repo_path: pathlib.Path, message: str) -> None:
+    """Commit repo changes when auto_commit is enabled. Silently no-ops on any error."""
+    try:
+        cfg = config.load_pauldot_config(repo_path)
+        if cfg.git.auto_commit:
+            git.commit(repo_path, message)
+            console.print("✓ Committed to dotfiles repo.")
+    except (FileNotFoundError, RuntimeError):
+        pass
+
+
 _TOOL_ACTION_LABELS: dict[str, tuple[str, str]] = {
     "installed": ("✓ installed", "green"),
     "already_installed": ("✓ already installed", "dim"),
@@ -188,13 +200,7 @@ def tool_add(
     except FileNotFoundError:
         console.print(f"[yellow]⚠[/yellow] Profile '{target_profile}' not found — tool saved to tools.toml only.")
 
-    try:
-        cfg = config.load_pauldot_config(repo_path)
-        if cfg.git.auto_commit:
-            git.commit(repo_path, f"pauldot: add tool {name}")
-            console.print("✓ Committed to dotfiles repo.")
-    except (FileNotFoundError, RuntimeError):
-        pass  # auto-commit is best-effort
+    _maybe_commit(repo_path, f"pauldot: add tool {name}")
 
 
 @tool_app.command("remove")
@@ -211,10 +217,4 @@ def tool_remove(name: str) -> None:
     config.save_tools(repo_path, updated)
     console.print(f"✓ Removed '{name}' from tools/tools.toml.")
 
-    try:
-        cfg = config.load_pauldot_config(repo_path)
-        if cfg.git.auto_commit:
-            git.commit(repo_path, f"pauldot: remove tool {name}")
-            console.print("✓ Committed to dotfiles repo.")
-    except (FileNotFoundError, RuntimeError):
-        pass  # auto-commit is best-effort
+    _maybe_commit(repo_path, f"pauldot: remove tool {name}")

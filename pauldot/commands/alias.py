@@ -17,6 +17,17 @@ console = rich_console.Console()
 _ALIAS_PREFIX = "alias "
 
 
+def _maybe_commit(repo_path: pathlib.Path, message: str) -> None:
+    """Commit repo changes when auto_commit is enabled. Silently no-ops on any error."""
+    try:
+        cfg = config.load_pauldot_config(repo_path)
+        if cfg.git.auto_commit:
+            git.commit(repo_path, message)
+            console.print("✓ Committed to dotfiles repo.")
+    except (FileNotFoundError, RuntimeError):
+        pass
+
+
 def _aliases_file(repo_path: pathlib.Path) -> pathlib.Path:
     return repo_path / "files" / "aliases.zsh"
 
@@ -98,13 +109,7 @@ def alias_add(
 
     console.print(f'✓ Added alias {key}="{value}"')
 
-    try:
-        cfg = config.load_pauldot_config(repo_path)
-        if cfg.git.auto_commit:
-            git.commit(repo_path, f"pauldot: add alias {key}")
-            console.print("✓ Committed to dotfiles repo.")
-    except (FileNotFoundError, RuntimeError):
-        pass  # auto-commit is best-effort
+    _maybe_commit(repo_path, f"pauldot: add alias {key}")
 
     try:
         result = pauldot_apply.run(pathlib.Path.home())
@@ -159,13 +164,7 @@ def alias_remove(
 
     console.print(f"✓ Removed alias '{key}' from {', '.join(sources)}")
 
-    try:
-        cfg = config.load_pauldot_config(repo_path)
-        if cfg.git.auto_commit:
-            git.commit(repo_path, f"pauldot: remove alias {key}")
-            console.print("✓ Committed to dotfiles repo.")
-    except (FileNotFoundError, RuntimeError):
-        pass  # auto-commit is best-effort
+    _maybe_commit(repo_path, f"pauldot: remove alias {key}")
 
     try:
         result = pauldot_apply.run(pathlib.Path.home())
